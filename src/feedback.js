@@ -1,5 +1,5 @@
-import { TYPES, cellAt, key } from './core.js?v=0.5.0';
-import { noteName } from './music.js?v=0.5.0';
+import { TYPES, cellAt, key } from './core.js?v=0.5.1';
+import { noteName } from './music.js?v=0.5.1';
 
 export function reasonCopy(building) {
   if(building?.active)return building.span>1?`長屋${building.span}マス · 先頭から長く響きます`:'この拍で鳴ります';

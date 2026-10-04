@@ -1,10 +1,10 @@
-import { TYPES, SCALES, MUSICAL_TYPES, createTown, waterNetwork, build, moveBuilding, undoChanges, previewAction, advance, lineCells, restoreTown, cellAt } from './core.js?v=0.5.0';
-import { renderTown, pulseTown, setCursor, center, icon, welcomeArt } from './render.js?v=0.5.0';
-import { TownAudio, scoreAt, STEP_SECONDS } from './music.js?v=0.5.0';
-import { captureTown, photoFrame, downloadBlob, sharablePhoto, sharePhoto } from './photo.js?v=0.5.0';
-import { restoreTown as restoreLegacy, waterNetwork as legacyNetwork } from './legacy-core.js?v=0.5.0';
-import { renderTown as renderLegacy } from './legacy-render.js?v=0.5.0';
-import { reasonCopy, toneCopy, currentCellCopy, previewCopy, movedCellCopy } from './feedback.js?v=0.5.0';
+import { WIDTH, HEIGHT, TYPES, SCALES, MUSICAL_TYPES, createTown, waterNetwork, build, moveBuilding, undoChanges, previewAction, advance, lineCells, restoreTown, cellAt } from './core.js?v=0.5.1';
+import { renderTown, pulseTown, setCursor, center, icon, welcomeArt } from './render.js?v=0.5.1';
+import { TownAudio, scoreAt, STEP_SECONDS } from './music.js?v=0.5.1';
+import { captureTown, photoFrame, downloadBlob, sharablePhoto, sharePhoto } from './photo.js?v=0.5.1';
+import { restoreTown as restoreLegacy, waterNetwork as legacyNetwork } from './legacy-core.js?v=0.5.1';
+import { renderTown as renderLegacy } from './legacy-render.js?v=0.5.1';
+import { reasonCopy, toneCopy, currentCellCopy, previewCopy, movedCellCopy } from './feedback.js?v=0.5.1';
 const $=id=>document.getElementById(id),SAVE_KEY='mon.demo6.composition.v2',LEGACY_KEY='mon.demo6.town.v1';
 let town=createTown(),network,legacy=null,saveProblem='',running=false,tool='gutter',cursor=[4,3],hover=null,moveSource=null,detailPosition=null;
 let history=[],stroke=null,visited=null,lastPointer=null,toastTimer,lastFrame=0,lastSave=0,silentTime=0,silentStep=0,currentStep=-1,legacyRaw=null;

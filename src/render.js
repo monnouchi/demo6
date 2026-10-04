@@ -1,7 +1,7 @@
-import { WIDTH, HEIGHT, TYPES, cellAt, neighbors, key, noteFor } from './core.js?v=0.5.0';
-import { noteName } from './music.js?v=0.5.0';
-import { buildingArt } from './art.js?v=0.5.0';
-export { icon, welcomeArt } from './art.js?v=0.5.0';
+import { WIDTH, HEIGHT, TYPES, cellAt, neighbors, key, noteFor } from './core.js?v=0.5.1';
+import { noteName } from './music.js?v=0.5.1';
+import { buildingArt } from './art.js?v=0.5.1';
+export { icon, welcomeArt } from './art.js?v=0.5.1';
 export const VIEW_WIDTH=1088,VIEW_HEIGHT=666;
 export const center=(x,y)=>[64+x*64,94+y*58];
 export function renderTown(svg,town,network,tool,selection=null){
