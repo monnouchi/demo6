@@ -1,0 +1,13 @@
+{
+  "name": "demo6",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A small water-powered musical town by mon.",
+  "license": "MIT",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/check.mjs"
+  }
+}
