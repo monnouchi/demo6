@@ -1,118 +1,70 @@
-// Original eight-bar score. The gutter repeats a motif with answering phrases;
-// the wheel and bells share the D–G–Bm–A harmony and the same musical clock.
-export const BPM = 88;
-export const STEP_SECONDS = 60 / BPM / 4;
-export const BAR_SECONDS = STEP_SECONDS * 16;
-export const CHORDS = [
-  { name: 'D add9', root: 50, fifth: 57, notes: [62, 66, 69], pad: [50, 57, 64, 66] },
-  { name: 'D add9', root: 50, fifth: 57, notes: [62, 66, 69], pad: [50, 57, 64, 66] },
-  { name: 'G maj7', root: 43, fifth: 50, notes: [59, 62, 66], pad: [43, 50, 59, 66] },
-  { name: 'G maj7', root: 43, fifth: 50, notes: [59, 62, 66], pad: [43, 50, 59, 66] },
-  { name: 'B m7', root: 47, fifth: 54, notes: [59, 62, 66], pad: [47, 54, 62, 66] },
-  { name: 'B m7', root: 47, fifth: 54, notes: [59, 62, 66], pad: [47, 54, 62, 66] },
-  { name: 'A sus4', root: 45, fifth: 52, notes: [57, 62, 64], pad: [45, 52, 62, 64] },
-  { name: 'A', root: 45, fifth: 52, notes: [57, 61, 64], pad: [45, 52, 61, 64] },
-];
-const MELODY = [
-  [74, 78, 81, 78, 76], [74, 76, 78, 76, 74],
-  [74, 78, 83, 81, 78], [76, 74, 71, 74, 78],
-  [74, 78, 81, 78, 76], [74, 71, 69, 71, 74],
-  [76, 81, 78, 76, 74], [76, 73, 69, 73, 74],
-];
-const MELODY_STEPS = [0, 3, 6, 8, 12];
-const MELODY_LENGTHS = [3, 3, 2, 4, 4];
-export const midiHz = note => 440 * 2 ** ((note - 69) / 12);
-export function scoreAt(stepIndex, counts, activeCount = 0) {
-  const bar = Math.floor(stepIndex / 16) % 8, step = stepIndex % 16, chord = CHORDS[bar];
-  const events = [];
-  if (counts.mill > 0 && [0, 6, 8, 14].includes(step)) events.push({ instrument: 'mill', note: [0, 8].includes(step) ? chord.root : chord.fifth, length: [0, 8].includes(step) ? 5 : 1.6, gain: Math.min(1.3, 0.85 + counts.mill * 0.12) * (step === 6 || step === 14 ? 0.65 : 1) });
-  const melodyIndex = MELODY_STEPS.indexOf(step);
-  if (counts.gutter > 0 && melodyIndex >= 0) events.push({ instrument: 'gutter', note: MELODY[bar][melodyIndex], length: MELODY_LENGTHS[melodyIndex], gain: Math.min(1.25, .8 + counts.gutter * .10) });
-  if (counts.bell > 0 && step === 0 && bar % 2 === 0) chord.notes.forEach((note, i) => events.push({ instrument: 'bell', note, length: 12, offset: i * .065, gain: .32 * Math.min(1.3, .9 + counts.bell * .08) }));
-  if (counts.bell > 0 && step === 10 && bar % 2 === 1) events.push({ instrument: 'bell', note: chord.notes[2] + 12, length: 6, gain: .45 });
-  if (activeCount >= 4 && counts.mill > 0 && counts.gutter > 0 && counts.bell > 0 && step === 0) chord.pad.forEach(note => events.push({ instrument: 'pad', note, length: 16, gain: .22 }));
+import { SCALES } from './core.js?v=0.4.0';
+export const BPM=88, STEP_SECONDS=60/BPM/2, BAR_SECONDS=STEP_SECONDS*8;
+export const midiHz=note=>440*2**((note-69)/12);
+export const noteName=note=>['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'][((note%12)+12)%12]+(Math.floor(note/12)-1);
+export function scoreAt(stepIndex,network) {
+  return network.buildings.filter(b=>b.active&&b.x===stepIndex%16).map(b=>({instrument:b.type,note:b.note,length:b.type==='bell'?4:b.type==='mill'?1.3:1.7,gain:.85,index:b.index,x:b.x,y:b.y}));
+}
+// An original quiet eight-bar accompaniment leaves the melody to the placed town.
+// D6/9 – Bm7 – G6/9 – D6/9, transposed as a whole with the player's scale.
+export function accompanimentAt(stepIndex,scale='d') {
+  const root=SCALES[scale].root,bar=Math.floor(stepIndex/8)%8,step=stepIndex%8;
+  const chord=[[0,4,9,14],[0,4,9,14],[-3,0,4,7],[-3,0,4,7],[-7,-3,2,9],[-7,-3,2,9],[0,4,9,14],[0,4,9,14]][bar];
+  const events=[];
+  if(step===0)for(const interval of [chord[0]-12,chord[1],chord[2]])events.push({instrument:'pad',note:root+interval,length:8,gain:.20});
+  const motif=[[7,9,4],[7,4,0],[4,7,0],[4,0,-3],[2,4,9],[2,-3,0],[7,9,4],[4,2,0]][bar];
+  const index=[1,4,6].indexOf(step);if(index>=0)events.push({instrument:'backing',note:root+motif[index],length:index===2?2:2.5,gain:.23});
   return events;
 }
-
-export function synthVoice(context, destination, event, time, pan = 0, onVoice = null) {
-  const duration = event.length * STEP_SECONDS;
-  const gain = context.createGain();
-  const panner = context.createStereoPanner();
-  panner.pan.value = pan;
-  gain.connect(panner).connect(destination);
-  const preset = {
-    mill: { volume: .20, attack: .014, release: .22, harmonics: [[1, 'sine', 1], [2, 'triangle', .20]] },
-    gutter: { volume: .12, attack: .012, release: .48, harmonics: [[1, 'sine', 1], [2, 'sine', .23], [3, 'sine', .05]] },
-    bell: { volume: .14, attack: .012, release: 1.0, harmonics: [[1, 'sine', 1], [2, 'sine', .35], [3, 'sine', .08]] },
-    pad: { volume: .065, attack: .42, release: .45, harmonics: [[1, 'sine', 1], [2, 'sine', .10]] },
+export function synthVoice(context,destination,event,time,pan=0,onVoice=null) {
+  const duration=event.length*STEP_SECONDS;
+  const preset={
+    mill:{volume:.16,attack:.008,release:.19,partials:[[1,'sine',1],[2,'triangle',.16],[3,'sine',.035]]},
+    gutter:{volume:.12,attack:.009,release:.36,partials:[[1,'sine',1],[2,'sine',.19],[3,'sine',.045]]},
+    bell:{volume:.13,attack:.003,release:1.3,partials:[[1,'sine',1],[2.76,'sine',.30],[5.4,'sine',.10],[7.13,'sine',.04]]},
+    pad:{volume:.055,attack:.3,release:.4,partials:[[1,'sine',1],[2,'sine',.08]]},
+    backing:{volume:.055,attack:.02,release:.25,partials:[[1,'sine',1],[2,'sine',.08]]},
   }[event.instrument];
-  const peak = preset.volume * event.gain;
-  gain.gain.setValueAtTime(0, time);
-  gain.gain.linearRampToValueAtTime(peak, time + preset.attack);
-  if (event.instrument === 'pad') {
-    gain.gain.setValueAtTime(peak, time + Math.max(preset.attack, duration - .25));
-    gain.gain.linearRampToValueAtTime(0, time + duration + preset.release);
-  } else {
-    gain.gain.exponentialRampToValueAtTime(Math.max(.0001, peak * .2), time + Math.max(preset.attack + .02, duration));
-    gain.gain.exponentialRampToValueAtTime(.0001, time + duration + preset.release);
-    gain.gain.linearRampToValueAtTime(0, time + duration + preset.release + .02);
-  }
-  let remaining = preset.harmonics.length;
-  for (const [ratio, wave, amplitude] of preset.harmonics) {
-    const oscillator = context.createOscillator(), harmonicGain = context.createGain();
-    oscillator.type = wave;
-    oscillator.frequency.value = midiHz(event.note) * ratio;
-    harmonicGain.gain.value = amplitude;
-    oscillator.connect(harmonicGain).connect(gain);
-    oscillator.start(time);
-    oscillator.stop(time + duration + preset.release + .04);
-    onVoice?.(1);
-    oscillator.onended = () => { oscillator.disconnect(); harmonicGain.disconnect(); onVoice?.(-1); if (--remaining === 0) { gain.disconnect(); panner.disconnect(); } };
+  const panner=context.createStereoPanner();panner.pan.value=pan;panner.connect(destination);
+  let remaining=preset.partials.length;
+  for(const [ratio,wave,amplitude]of preset.partials) {
+    const osc=context.createOscillator(),gain=context.createGain(),peak=preset.volume*event.gain*amplitude;
+    osc.type=wave;osc.frequency.value=midiHz(event.note)*ratio;
+    gain.gain.setValueAtTime(0,time);gain.gain.linearRampToValueAtTime(peak,time+preset.attack);
+    const decay=event.instrument==='bell'&&ratio>1?duration/(ratio*.55):duration;
+    if(event.instrument==='pad'){gain.gain.setValueAtTime(peak,time+Math.max(preset.attack,decay-.2));gain.gain.linearRampToValueAtTime(0,time+decay+preset.release);}
+    else {gain.gain.exponentialRampToValueAtTime(Math.max(.0001,peak*.14),time+Math.max(preset.attack+.01,decay));gain.gain.exponentialRampToValueAtTime(.0001,time+decay+preset.release);gain.gain.linearRampToValueAtTime(0,time+decay+preset.release+.02);}
+    osc.connect(gain).connect(panner);osc.start(time);osc.stop(time+decay+preset.release+.04);onVoice?.(1);
+    osc.onended=()=>{osc.disconnect();gain.disconnect();onVoice?.(-1);if(--remaining===0)panner.disconnect();};
   }
 }
-
 export class TownAudio {
-  constructor() { this.context = null; this.master = null; this.timer = null; this.muted = true; this.stepIndex = 0; this.network = null; this.voices = 0; this.queuedParts = null; this.parts = { mill: 1, gutter: 0, bell: 0 }; this.activeCount = 1; this.lastBar = 0; }
-  setNetwork(network) { this.network = network; this.queuedParts = { ...network.counts }; }
-  async start() {
-    if (!this.context || this.context.state === 'closed') {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContextClass) throw new Error('このブラウザでは音を使えません。音なしで遊べます。');
-      this.context = new AudioContextClass();
-      this.master = this.context.createGain();this.master.gain.value = 0;
-      const compressor = this.context.createDynamicsCompressor();
-      compressor.threshold.value = -16;compressor.knee.value = 18;compressor.ratio.value = 3;compressor.attack.value = .008;compressor.release.value = .25;
-      this.bus = this.context.createGain();
-      this.bus.gain.value = .7;
-      this.bus.connect(compressor).connect(this.master).connect(this.context.destination);
-      // Two quiet, filtered reflections give the original instruments a shared room.
-      for (const [seconds, amount] of [[.23, .14], [.41, .09]]) {
-        const delay = this.context.createDelay(1), reflection = this.context.createGain(), filter = this.context.createBiquadFilter();
-        delay.delayTime.value = seconds;reflection.gain.value = amount;filter.type='lowpass';filter.frequency.value = 2200;
-        this.bus.connect(delay).connect(filter).connect(reflection).connect(compressor);
-      }
-      this.nextTime = this.context.currentTime + .08;
+  constructor(onStep=null){this.context=null;this.master=null;this.timer=null;this.muted=true;this.stepIndex=0;this.voices=0;this.network=null;this.scale='d';this.backing=true;this.onStep=onStep;this.pending=[];this.lastStep=-1;}
+  setTown(town,network){this.scale=town.scale;this.network=network;}
+  async start(step=0) {
+    if(!this.context||this.context.state==='closed'){
+      const Context=window.AudioContext||window.webkitAudioContext;if(!Context)throw new Error('このブラウザでは音を使えません。光で遊べます。');
+      this.context=new Context();this.master=this.context.createGain();this.master.gain.value=0;
+      const compressor=this.context.createDynamicsCompressor();compressor.threshold.value=-14;compressor.knee.value=18;compressor.ratio.value=3;compressor.attack.value=.004;compressor.release.value=.25;
+      this.bus=this.context.createGain();this.bus.gain.value=1.5;this.bus.connect(compressor).connect(this.master).connect(this.context.destination);
+      for(const [seconds,amount]of [[.19,.09],[.31,.06]]){const delay=this.context.createDelay(1),gain=this.context.createGain(),filter=this.context.createBiquadFilter();delay.delayTime.value=seconds;gain.gain.value=amount;filter.type='lowpass';filter.frequency.value=2100;this.bus.connect(delay).connect(filter).connect(gain).connect(compressor);}
+      this.stepIndex=step%64;
     }
-    await this.context.resume();
-    this.muted = false;
-    this.master.gain.setTargetAtTime(.65, this.context.currentTime, .035);
-    if (!this.timer) { this.nextTime = this.context.currentTime + .08; this.timer = window.setInterval(() => this.schedule(), 25); }
+    await this.context.resume();this.muted=false;this.master.gain.setTargetAtTime(.85,this.context.currentTime,.025);
+    if(!this.timer){this.nextTime=this.context.currentTime+.05;this.timer=window.setInterval(()=>this.schedule(),25);}
   }
-  setMuted(muted) { this.muted=muted;if(this.master)this.master.gain.setTargetAtTime(muted?0:.65,this.context.currentTime,.035); }
-  schedule() {
-    if(!this.context || this.context.state!=='running')return;
-    if(this.nextTime < this.context.currentTime - .1)this.nextTime=this.context.currentTime+.04;
-    while(this.nextTime < this.context.currentTime+.13) {
-      if(this.stepIndex%16===0) { if(this.queuedParts)this.parts={...this.queuedParts};this.activeCount=this.network?.activeCount??1;this.lastBar=Math.floor(this.stepIndex/16)%8; }
-      if(!this.muted) for(const event of scoreAt(this.stepIndex,this.parts,this.activeCount)) {
-        const buildings=this.network?.buildings.filter(b=>b.active&&b.type===event.instrument)??[];
-        const pan=buildings.length?((buildings.reduce((sum,b)=>sum+b.x,0)/buildings.length)/12-.5)*.7:0;
-        synthVoice(this.context,this.bus,event,this.nextTime+(event.offset??0),pan,n=>{this.voices+=n;});
-      }
-      this.nextTime+=STEP_SECONDS;this.stepIndex=(this.stepIndex+1)%128;
+  setMuted(muted){this.muted=muted;if(this.master)this.master.gain.setTargetAtTime(muted?0:.85,this.context.currentTime,.025);}
+  schedule(){
+    if(!this.context||this.context.state!=='running'||!this.network)return;
+    if(this.nextTime<this.context.currentTime-.1)this.nextTime=this.context.currentTime+.04;
+    while(this.nextTime<this.context.currentTime+.12){
+      const notes=scoreAt(this.stepIndex,this.network),events=[...notes,...(this.backing?accompanimentAt(this.stepIndex,this.scale):[])];
+      if(!this.muted)for(const event of events)synthVoice(this.context,this.bus,event,this.nextTime,event.x!==undefined?(event.x/15-.5)*.6:0,n=>{this.voices+=n;});
+      this.pending.push({time:this.nextTime,step:this.stepIndex,notes});this.nextTime+=STEP_SECONDS;this.stepIndex=(this.stepIndex+1)%64;
     }
   }
-  async suspend() { if(this.context)await this.context.suspend(); }
-  async resume() { if(this.context&&this.context.state==='suspended') { await this.context.resume();this.nextTime=this.context.currentTime+.08; } }
-  async close() { if(this.timer)clearInterval(this.timer);this.timer=null;this.muted=true;if(this.context&&this.context.state!=='closed')await this.context.close(); }
+  flushVisuals(){if(!this.context||this.context.state!=='running')return;while(this.pending.length&&this.pending[0].time<=this.context.currentTime){const item=this.pending.shift();this.lastStep=item.step;this.onStep?.(item.step,item.notes);}}
+  async suspend(){if(this.context&&this.context.state==='running')await this.context.suspend();}
+  async resume(){if(this.context?.state==='suspended'){await this.context.resume();this.pending=[];this.nextTime=this.context.currentTime+.05;}}
+  async close(){if(this.timer)clearInterval(this.timer);this.timer=null;this.pending=[];this.muted=true;if(this.context&&this.context.state!=='closed')await this.context.close();}
 }

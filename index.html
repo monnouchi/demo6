@@ -1,109 +1,32 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#ececdd">
-  <meta name="description" content="自由に水路を引いて、水と音で育つ小さな街をつくる、monの建設ゲーム試作。">
-  <title>demo6 · mon</title>
-  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=0.2.1">
-  <script type="module" src="./src/app.js?v=0.2.1"></script>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#31594e">
+<meta name="description" content="自由に水路を引き、楽器の位置で音をつくる小さな街づくり。水車、雨樋、鐘と花園で、あなたの街を。">
+<title>mon | 水辺の街づくり</title><link rel="icon" href="./favicon.svg"><link rel="stylesheet" href="./style.css?v=0.4.0">
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="./" aria-label="demo6 ホーム"><span class="brand-mark">m<span>◦</span>n</span><span class="brand-divider"></span><span class="brand-name">demo6 <small>水と音の街づくり</small></span></a>
-    <nav class="top-actions" aria-label="ゲームの設定">
-      <button id="sound-button" class="icon-button" aria-label="音をオンにする" aria-pressed="false"></button>
-      <button id="help-button" class="icon-button" aria-label="遊び方を見る">?</button>
-      <button id="menu-button" class="icon-button" aria-label="街の設定を開く">⋯</button>
-    </nav>
-  </header>
-
-  <main class="game-layout">
-    <section class="town-panel" aria-label="街の建設画面">
-      <div class="town-heading"><div><p class="eyebrow">A TOWN, COMPOSED BY YOU</p><h1>水をつなぐ。街がうたう。</h1></div><span class="weather-chip" id="weather-label">☀ おだやかな昼</span></div>
-      <button id="mobile-goal" class="mobile-goal" aria-label="街の目標を詳しく見る"><span id="mobile-goal-text"></span><span>目標を見る ↓</span></button>
-      <div class="resource-bar" aria-label="街の状態">
-        <div class="resource wood"><span class="resource-icon" aria-hidden="true">▰</span><span><small>木材</small><strong id="wood-value">92</strong></span><span class="resource-rate" id="wood-rate">+1.2 / 秒</span></div>
-        <div class="resource"><span class="resource-icon water-icon" aria-hidden="true">◈</span><span><small>水のある建物</small><strong><span id="active-value">1</span><em>棟</em></strong></span></div>
-        <div class="resource color-resource"><span class="resource-icon" aria-hidden="true">✳</span><span><small>街の彩り</small><strong id="growth-value">0</strong></span></div>
-      </div>
-      <div class="board-shell" id="board-shell">
-        <div class="board-viewport" id="board-viewport">
-        <svg id="town" viewBox="0 0 900 650" fill="none" role="grid" aria-rowcount="9" aria-colcount="13" aria-label="13列9行の街。水路や建物を置く場所を選択" tabindex="0"></svg>
-        </div>
-        <div class="camera-controls" role="group" aria-label="盤面の表示">
-          <button id="zoom-out" aria-label="盤面を縮小する" disabled>−</button><button id="zoom-in" aria-label="盤面を拡大する">＋</button>
-          <button id="pan-button" aria-label="盤面を動かすモードに切り替える" aria-pressed="false">移動</button><button id="zoom-reset" aria-label="街全体を表示する">全体</button>
-        </div>
-        <div class="board-caption"><span class="live-dot"></span><span id="board-caption">泉から、好きな方向へ。</span></div>
-        <button class="undo-button" id="undo-button" aria-label="ひとつ前の建設を戻す" disabled>↶ <span>ひとつ戻す</span></button>
-        <div class="toast" id="toast" role="status" aria-live="polite"></div>
-      </div>
-      <div class="build-bar" role="toolbar" aria-label="建設道具" id="build-bar"></div>
-      <div class="tool-description"><span id="tool-description"></span><kbd id="keyboard-tip">1–6 道具を切替 · 矢印キー＋Enter で建設</kbd></div>
-    </section>
-
-    <aside class="side-panel" aria-label="街の成長と合奏">
-      <section class="goal-card">
-        <div class="card-title"><p class="eyebrow">YOUR LITTLE TOWN</p><span id="stage-number">01 / 03</span></div>
-        <h2 id="goal-title">はじめの掛け合い</h2><p id="goal-copy">雨樋か鐘を置いて、水路をつなごう。水の届いた建物が街の仲間になる。</p>
-        <div class="goal-checks" id="goal-checks"></div>
-        <div class="goal-progress"><span id="goal-progress"></span></div>
-        <p class="goal-footnote" id="goal-footnote">順番も、場所も、あなたの自由。</p>
-      </section>
-      <section class="ensemble-card">
-        <div class="card-title"><h2>街の合奏</h2><span class="tempo">88 BPM</span></div>
-        <p class="muted small">水が届くと、同じ曲の仲間になる。</p>
-        <div id="ensemble-parts"></div>
-        <div class="phrase-meter" id="phrase-meter" aria-label="8小節のフレーズ"></div>
-        <div class="music-caption"><span id="music-status">音は、はじめる時に選べます</span><span id="chord-label">D add9</span></div>
-      </section>
-      <section class="spring-card">
-        <div class="card-title"><h2>泉のながれ</h2><span id="flow-label">2 / 12</span></div>
-        <div class="flow-meter"><span id="flow-meter"></span></div>
-        <p class="small muted" id="flow-copy">まだ余裕があります。水路は枝分かれできます。</p>
-        <button id="upgrade-button" class="upgrade-button">泉を深くする <span>木材 40</span></button>
-      </section>
-      <p class="town-note">小さな仕組みが、ひとつの風景になる。<br>完成しても、この街は続いていく。</p>
-    </aside>
-  </main>
-
-  <footer><span>mon · original web game prototype</span><span id="save-status">この端末に自動保存</span></footer>
-
-  <dialog id="welcome-dialog" class="welcome-dialog">
-    <div class="welcome-art" id="welcome-art" aria-hidden="true"></div>
-    <p class="eyebrow">MON / DEMO6</p><h2>あなたの水路から、<br>小さな合奏がはじまる。</h2>
-    <p>泉から水を引いて、水車・雨樋・鐘のある街へ。<br>水が届けば、建物が動き、音が重なります。</p>
-    <div class="welcome-steps"><span><b>01</b> 水をつなぐ</span><span><b>02</b> 街を育てる</span><span><b>03</b> 合奏をつくる</span></div>
-    <button class="primary-button" id="start-sound">音を出してはじめる <span>♪</span></button>
-    <button class="quiet-button" id="start-silent">音なしではじめる</button>
-    <p class="welcome-note">音量は控えめです。いつでもミュートできます。<br>正式なタイトルは未定です。</p>
-  </dialog>
-
-  <dialog id="help-dialog">
-    <button class="dialog-close" data-close="help-dialog" aria-label="遊び方を閉じる">×</button>
-    <p class="eyebrow">HOW TO PLAY</p><h2>水の通り道を、自由に。</h2>
-    <ol class="help-list"><li><b>水路を引く</b><p>水路を選び、マスをクリック／タップ。押したままなぞると、つながった水路を引けます。泉につながると水が流れます。</p></li><li><b>建物を置く</b><p>水車・雨樋・鐘・花園を、水路の上下左右に置きます。水が届くと動き、水車は木材を、ほかの建物は彩りを育てます。</p></li><li><b>あなたの街の祝祭へ</b><p>3種の楽器、動く建物6棟、流れる水路8マス、彩り60を目指しましょう。達成しても自由に建設を続けられます。</p></li></ol>
-    <div class="help-tip">建物をタップすると様子がわかります。撤去すると木材はすべて戻ります。水が足りない時は泉を深くしましょう。</div>
-    <p class="small muted">PC：1〜6で道具選択、矢印キーでマス移動、Enterで建設、Ctrl/⌘＋Zで戻す、Mでミュート。<br>スマホ：水路をなぞって建設。＋で拡大するとマスを選びやすくなります。「移動」で盤面をドラッグ、「全体」で戻れます。盤面の外でページをスクロールできます。</p>
-  </dialog>
-
-  <dialog id="menu-dialog">
-    <button class="dialog-close" data-close="menu-dialog" aria-label="設定を閉じる">×</button><p class="eyebrow">YOUR TOWN</p><h2>街の設定</h2>
-    <p>街はこの端末のブラウザに自動保存されます。音のオン／オフは毎回選べます。</p>
-    <p id="menu-status" class="menu-status" role="status" aria-live="polite" hidden></p>
-    <button class="secondary-button" id="export-button">街をファイルに保存</button>
-    <label class="secondary-button import-label">保存した街を読み込む<input id="import-input" type="file" accept=".json,application/json"></label>
-    <button class="danger-button" id="reset-button">新しい街をはじめる</button>
-    <div id="reset-confirm" hidden><p class="small">今の街は消えます。必要なら先にファイルへ保存してください。</p><div class="button-row"><button class="danger-button" id="reset-yes">新しい街にする</button><button class="quiet-button" id="reset-no">やめる</button></div></div>
-  </dialog>
-
-  <dialog id="festival-dialog" class="festival-dialog">
-    <div class="festival-illustration" aria-hidden="true">✦ <span>♬</span> ✦</div><p class="eyebrow">A LITTLE WATER FESTIVAL</p><h2>この街だけの、合奏ができた。</h2><p>あなたが引いた水路が、街を動かし、<br>ひとつの曲になりました。</p>
-    <div class="festival-stats" id="festival-stats"></div>
-    <button class="primary-button" id="continue-button">この街をもっと育てる <span>→</span></button><p class="small muted">祝祭の記録を保存しました。次は、どんな景色にしよう。</p>
-  </dialog>
-</body>
-</html>
+<header class="topbar"><a class="brand" href="./" aria-label="monの水辺の街"><span class="brand-mark">m<span>·</span></span><span>mon<small>小さな水辺の街</small></span></a><nav class="top-actions" aria-label="街の操作"><button id="photo-button" class="text-button">街の写真</button><button id="sound-button" class="icon-button" aria-label="音をオンにする" aria-pressed="false">♪</button><button id="menu-button" class="icon-button" aria-label="遊び方と保存">☰</button></nav></header>
+<main class="game-layout">
+<section class="town-panel" aria-label="街づくり">
+<div class="town-heading"><div><p class="eyebrow">WATER, NOTES & LITTLE STREETS</p><h1>水を引いて、音を置く。</h1></div><span id="weather-label" class="weather-chip">☀ おだやかな昼</span></div>
+<div class="town-hud"><div class="lesson-strip"><span id="lesson-copy">雨樋を水路のとなりにひとつ。光る場所から音が鳴ります。</span><span id="lesson-count">01 / 03</span></div><div class="resource-bar"><div class="resource"><small>残りの木材</small><strong id="wood-value">198 <em>/ 220</em></strong><span>撤去で全額戻る</span></div><div class="resource"><small>流す水</small><strong id="water-value">2 <em>/ 12</em></strong><span id="water-note">あと10使えます</span></div><div class="resource"><small>音のある拍</small><strong id="beat-value">1 <em>/ 16</em></strong><span id="beat-note">同じ拍は3音まで</span></div></div></div>
+<div id="board-viewport" class="board-viewport"><svg id="town" viewBox="0 0 1088 666" xmlns="http://www.w3.org/2000/svg" fill="none" role="grid" aria-label="街。横16拍、縦9段。上ほど高い音。矢印とEnterで建設。" aria-rowcount="9" aria-colcount="16" tabindex="0"></svg><div class="camera-controls" aria-label="画角"><button id="zoom-out" aria-label="街を縮小">−</button><button id="zoom-in" aria-label="街を拡大">＋</button><button id="pan-button" aria-label="街を動かす" aria-pressed="false">動かす</button><button id="camera-reset">全景</button></div><button id="undo-button" class="undo-button" disabled>↶ 戻す</button></div>
+<div id="construction-panel" class="construction-panel"><div id="build-bar" class="build-bar" role="toolbar" aria-label="建設と編集"></div><div class="tool-information"><strong id="selected-label">水路</strong><span id="tool-stats">木材1</span><span id="placement-preview">泉から好きな方向へ。</span></div></div>
+</section>
+<aside class="side-panel">
+<section class="music-card"><p class="eyebrow">YOUR TWO-BAR PHRASE</p><h2>場所が、音楽になる。</h2><p class="small">横は鳴るタイミング。上ほど高い音。<br>楽器の光と、街を横切る拍を追ってみよう。</p><label class="setting-row">街全体の調性<select id="scale-select"><option value="d">ニ長調 · D</option><option value="f">ヘ長調 · F</option><option value="a">イ長調 · A</option></select></label><button id="backing-button" class="secondary-button" aria-pressed="true">伴奏あり · 88 BPM</button><p class="tiny">伴奏を消すと、あなたの置いた音だけ。<br>水車は低音、雨樋は滴、鐘は金属の余韻。</p><div id="phrase-meter" class="phrase-meter" aria-hidden="true"></div><p id="music-status" class="tiny">音は、はじめる時に選べます。</p></section>
+<section class="flow-card"><h2>水の配り方も、編曲。</h2><p id="flow-copy" class="small">水を受ける楽器を選ぼう。</p><p class="tiny">泉に近い楽器から水が届きます。<br>同じ距離なら上の段から。水の切替も自由。</p><button id="flow-shortcut" class="secondary-button">水を流す枝を選ぶ</button><label class="setting-row">街の光<select id="scene-select"><option value="day">昼</option><option value="evening">宵</option></select></label><p class="tiny">雨は泉に水を4足します。<br>花園は音のない景観。水は使いません。</p></section>
+<section id="achievement-card" class="achievement-card"><p class="eyebrow">A LITTLE FIRST PERFORMANCE</p><h2 id="goal-title">この街の、はじめの一曲。</h2><p id="goal-copy" class="small">ひとつ置いて、移して聴く。次に4つの拍へ3つの音色を届け、2小節を一周。</p><div id="goal-checks" class="goal-checks"></div><div class="goal-progress"><span id="goal-progress"></span></div></section>
+</aside>
+</main>
+<footer><span id="save-status">この端末に自動保存</span><span>つくって、聴いて、置き直す。</span></footer>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<dialog id="welcome-dialog" class="welcome-dialog"><div id="welcome-art" class="welcome-art" aria-hidden="true"></div><p class="eyebrow">YOUR WATER, YOUR MUSIC</p><h2>水路から、小さな合奏。</h2><p>水が届く楽器は、置いた場所で鳴ります。<br>横へ動かすと拍、上へ動かすと高さが変わる。<br>花と小道で景色もつくり、街の写真に。</p><button id="start-sound" class="primary-button">音を鳴らして、はじめる <span>→</span></button><button id="start-silent" class="quiet-button">音なしではじめる</button><p class="tiny">音はあとから切替可。街はこの端末に保存されます。</p></dialog>
+<dialog id="menu-dialog"><button class="dialog-close" aria-label="閉じる">×</button><h2>遊び方と保存</h2><ol class="help-list"><li><b>水をつなぐ</b><p>水路はなぞって引けます。楽器を水路の上下左右に置くと水が届きます。</p></li><li><b>位置で作曲する</b><p>横16マスで2小節。上ほど高い音。移動で楽器を選び、空き地を選んで置き直します。街全体で同じ音階を使います。</p></li><li><b>水と余白を選ぶ</b><p>水は12、雨なら16。同じ拍は3音まで。泉に近い楽器から鳴り、余った楽器は印で休みを示します。水の切替や移動で、どの音を出すか変えられます。</p></li><li><b>花園と写真</b><p>花園は音も水消費もない景観。街の写真から操作欄のないPNGを保存・共有できます。SNSへの投稿は自分で選べます。</p></li></ol><p class="tiny">矢印＋Enterで建設。1〜8で道具、Mで音、⌘/Ctrl＋Zで戻す。</p><p id="menu-status" role="status" class="menu-status" hidden></p><button id="export-button" class="secondary-button">街をファイルに保存</button><label class="secondary-button import-label">保存した街を読み込む<input id="import-input" type="file" accept="application/json,.json"></label><button id="legacy-button" class="secondary-button" hidden>前の街を見る・保存する</button><div class="button-row"><button id="reset-button" class="danger-button">この街をつくり直す</button><button id="menu-done" class="quiet-button">街に戻る</button></div></dialog>
+<dialog id="reset-dialog"><h2>この街をつくり直す？</h2><p>先に街をファイルに保存できます。前の街の保存は残ります。</p><button id="reset-export" class="secondary-button">今の街を保存する</button><div class="button-row"><button id="reset-confirm" class="danger-button">つくり直す</button><button id="reset-cancel" class="quiet-button">やめる</button></div></dialog>
+<dialog id="festival-dialog" class="festival-dialog"><p class="eyebrow">YOUR FIRST PERFORMANCE</p><div class="festival-illustration" aria-hidden="true">✦ ♫ ✦</div><h2>この街の一曲ができました。</h2><p>水を配り、拍と高さを選んだ、あなたの合奏。<br>余白を広げたり、鐘だけにしたり。<br>これからも、何度でもつくり直せます。</p><button id="festival-photo" class="primary-button">街を写真にする <span>→</span></button><button id="continue-button" class="quiet-button">街の続きをつくる</button></dialog>
+<dialog id="photo-dialog" class="photo-dialog"><button class="dialog-close" aria-label="閉じる">×</button><h2>街の写真</h2><img id="photo-preview" alt="水路と楽器と花園の街の写真"><p id="photo-status" class="tiny" role="status">画像を保存して、お好きな場所へ。</p><div class="button-row"><button id="photo-download" class="primary-button">画像を保存</button><button id="photo-share" class="secondary-button">画像を共有</button></div><button id="photo-again" class="quiet-button">今の街でもう一度撮る</button></dialog>
+<dialog id="legacy-dialog" class="legacy-dialog"><button class="dialog-close" aria-label="閉じる">×</button><h2>前の街の風景</h2><p class="tiny">これまで育てた街は、そのまま保管してあります。</p><svg id="legacy-town" viewBox="0 0 900 650" xmlns="http://www.w3.org/2000/svg" fill="none" aria-label="保管した前の街"></svg><div class="button-row"><button id="legacy-export" class="secondary-button">前の街を保存</button><button id="legacy-photo" class="secondary-button">この街の写真</button></div></dialog>
+<script type="module" src="./src/app.js?v=0.4.0"></script>
+</body></html>

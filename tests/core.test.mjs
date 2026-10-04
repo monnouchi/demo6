@@ -1,105 +1,38 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { WIDTH, TYPES, createTown, waterNetwork, build, advance, upgrade, undoChanges, lineCells, restoreTown } from '../src/core.js';
-import { scoreAt, midiHz, CHORDS } from '../src/music.js';
-const put=(town,type,x,y)=>{const result=build(town,type,x,y);assert.equal(result.ok,true,result.reason);return result.change;};
+import { WIDTH, HEIGHT, WOOD_BUDGET, TYPES, createTown, build, moveBuilding, undoChanges, waterNetwork, previewAction, advance, recordPlayback, restoreTown, noteFor, lineCells } from '../src/core.js';
+import { scoreAt, accompanimentAt, midiHz, TownAudio } from '../src/music.js';
+import { createTown as oldTown, restoreTown as restoreOld } from '../src/legacy-core.js';
+const put=(town,type,x,y)=>{const r=build(town,type,x,y);assert.equal(r.ok,true,r.reason);return r.change;};
+const spent=town=>town.cells.reduce((sum,c)=>sum+(TYPES[c?.type]?.cost??0),0);
+function bare(){const t=createTown();t.cells=Array(WIDTH*HEIGHT).fill(null);t.cells[4*WIDTH]={type:'spring'};t.wood=WOOD_BUDGET;return t;}
+function phrase(){const t=createTown();put(t,'gutter',1,3);put(t,'bell',4,3);put(t,'canal',5,4);put(t,'gutter',5,3);assert.equal(moveBuilding(t,[1,3],[0,3]).ok,true);return t;}
 
-test('the starter mill runs, and unconnected buildings stay dry',()=>{
-  const town=createTown();assert.equal(waterNetwork(town).counts.mill,1);
-  put(town,'bell',9,4);assert.equal(waterNetwork(town).counts.bell,0);
-  for(let x=1;x<=8;x++)if(!town.cells[3*WIDTH+x])put(town,'canal',x,3);
-  assert.equal(waterNetwork(town).counts.bell,0);
-  put(town,'canal',9,3);assert.equal(waterNetwork(town).counts.bell,1);
+test('starter low note is one placed note, with no passive income',()=>{const t=createTown(),wood=t.wood;assert.equal(waterNetwork(t).activeCount,1);assert.equal(scoreAt(2,waterNetwork(t)).length,1);assert.equal(scoreAt(3,waterNetwork(t)).length,0);for(let i=0;i<200;i++)advance(t,1);assert.equal(t.wood,wood);assert.equal(spent(t)+t.wood,220);});
+test('horizontal moves change the beat and vertical moves change the pitch',()=>{const t=createTown();put(t,'canal',3,5);const before=scoreAt(2,waterNetwork(t))[0];assert.equal(moveBuilding(t,[2,5],[3,6]).ok,true);const n=waterNetwork(t);assert.equal(scoreAt(2,n).length,0);const after=scoreAt(3,n)[0];assert.equal(after.note,noteFor(t,6,'mill'));assert.notEqual(after.note,before.note);assert.equal(t.moved,true);assert.equal(spent(t)+t.wood,220);});
+test('all instruments and the backing transpose in the same coherent scale',()=>{const t=phrase(),original=waterNetwork(t);t.scale='f';const next=waterNetwork(t);for(let i=0;i<original.buildings.length;i++)assert.equal(next.buildings[i].note-original.buildings[i].note,3);const a=accompanimentAt(0,'d'),b=accompanimentAt(0,'f');a.forEach((e,i)=>assert.equal(b[i].note-e.note,3));});
+test('closed branches disconnect their buildings and undo restores the whole system',()=>{const t=createTown();put(t,'gutter',4,3);const before=waterNetwork(t).activeCount,change=put(t,'flow',1,4);assert.equal(waterNetwork(t).activeCount,0);assert.equal(undoChanges(t,[change]),true);assert.equal(waterNetwork(t).activeCount,before);});
+test('water is finite and shutting one instrument lets another receive it',()=>{const t=bare();for(let x=1;x<=9;x++)put(t,'canal',x,4);for(let x=0;x<7;x++)put(t,'bell',x,3);let n=waterNetwork(t);assert.equal(n.used,12);assert.equal(n.activeCount,6);assert.equal(n.waterBlocked,1);put(t,'flow',0,3);n=waterNetwork(t);assert.equal(n.used,12);assert.equal(n.buildings.find(b=>b.x===6).active,true);assert.equal(n.buildings.find(b=>b.x===0).reason,'closed');});
+test('rain visibly changes flow capacity and can activate a resting instrument',()=>{const t=bare();for(let x=1;x<=9;x++)put(t,'canal',x,4);for(let x=0;x<7;x++)put(t,'bell',x,3);assert.equal(waterNetwork(t).waterBlocked,1);t.elapsed=44;const n=waterNetwork(t);assert.equal(n.raining,true);assert.equal(n.capacity,16);assert.equal(n.activeCount,7);t.elapsed=60;assert.equal(waterNetwork(t).activeCount,6);});
+test('same budget: a dense beat gives a chord; spreading notes gives a phrase',()=>{
+  const dense=bare(),spaced=bare();
+  // Equal six notes (84 wood), equal fourteen canals, equal total remaining wood.
+  for(const t of [dense,spaced]){for(let y=0;y<9;y++)if(y!==4)put(t,'canal',0,y);for(let x=1;x<=6;x++)put(t,'canal',x,4);}
+  for(const y of [0,1,2,3,5,6])put(dense,'gutter',1,y);
+  for(const x of [1,2,3,4,5,6])put(spaced,'gutter',x,3);
+  const a=waterNetwork(dense),b=waterNetwork(spaced);assert.equal(dense.wood,spaced.wood);assert.equal(a.activeCount,3);assert.equal(a.crowded,3);assert.equal(a.beats,1);assert.equal(b.activeCount,6);assert.equal(b.crowded,0);assert.equal(b.beats,6);
+  assert.equal(Array.from({length:16},(_,i)=>scoreAt(i,a)).flat().length,3);assert.equal(Array.from({length:16},(_,i)=>scoreAt(i,b)).flat().length,6);
 });
-
-test('branching and loops connect through canals, not through buildings',()=>{
-  const town=createTown();town.wood=300;
-  put(town,'gutter',2,3);put(town,'bell',2,5);
-  assert.equal(waterNetwork(town).roles,3);
-  put(town,'garden',3,3);assert.equal(waterNetwork(town).counts.garden,0);
-  put(town,'canal',1,3);put(town,'canal',1,2);put(town,'canal',2,2);put(town,'canal',3,2);
-  assert.equal(waterNetwork(town).counts.garden,1);
-  put(town,'canal',3,1);put(town,'canal',2,1);
-  assert.equal(waterNetwork(town).counts.garden,1);
-});
-
-test('removing a shared canal disconnects the branch, and undo restores it',()=>{
-  const town=createTown();put(town,'gutter',2,3);put(town,'bell',2,5);
-  const before=town.wood;const change=put(town,'remove',1,4);
-  assert.equal(waterNetwork(town).activeCount,0);assert.equal(town.wood,before+TYPES.canal.cost);
-  assert.equal(undoChanges(town,[change]),true);assert.equal(waterNetwork(town).roles,3);assert.equal(town.wood,before);
-});
-
-test('a dragged route is continuous and refunds as one operation',()=>{
-  const town=createTown(),route=lineCells([2,4],[7,2]);
-  assert.deepEqual(route,[[3,4],[4,4],[5,4],[6,4],[7,4],[7,3],[7,2]]);
-  const changes=route.filter(([x,y])=>!town.cells[y*WIDTH+x]).map(([x,y])=>put(town,'canal',x,y));
-  const remaining=town.wood;assert.equal(undoChanges(town,changes),true);assert.equal(town.wood,remaining+changes.length*2);
-});
-
-test('insufficient funds and protected terrain do not mutate the town',()=>{
-  const town=createTown();town.wood=1;const before=JSON.stringify(town);
-  assert.equal(build(town,'bell',2,2).ok,false);assert.equal(build(town,'remove',0,4).ok,false);assert.equal(build(town,'canal',0,0).ok,false);assert.equal(build(town,'canal',-1,3).ok,false);
-  assert.equal(JSON.stringify(town),before);
-});
-
-test('many buildings share water fairly, and an upgraded spring increases production',()=>{
-  const town=createTown();town.wood=1000;
-  for(let x=1;x<=10;x++){put(town,'canal',x,5);put(town,'bell',x,6);}
-  let network=waterNetwork(town);assert.equal(network.counts.bell,10);assert.ok(network.efficiency<1);
-  const previous=network.growthRate;assert.equal(upgrade(town).ok,true);network=waterNetwork(town);
-  assert.ok(network.growthRate>previous);assert.ok(network.buildings.filter(b=>b.active).length===11);
-});
-
-test('a free-form six-building town reaches a festival once and can continue',()=>{
-  const town=createTown();put(town,'gutter',2,3);put(town,'bell',2,5);advance(town,.1);
-  for(const [x,y]of [[1,3],[1,5],[0,3]])put(town,'garden',x,y);
-  assert.equal(waterNetwork(town).activeCount,6);
-  for(const [x,y]of [[0,5],[0,6],[1,6],[2,6],[3,6],[4,6]])put(town,'canal',x,y);
-  assert.equal(waterNetwork(town).canalCount,8);
-  let festivals=0;for(let i=0;i<90;i++)festivals+=advance(town,1).filter(event=>event==='festival').length;
-  assert.equal(festivals,1);assert.equal(town.completed,true);assert.equal(town.stage,3);assert.ok(town.growth>=60);
-  const before=town.growth;advance(town,1);assert.ok(town.growth>before);assert.equal(advance(town,1).length,0);
-});
-
-test('save round-trip preserves completed towns and rejects invalid or injected data',()=>{
-  const town=createTown();assert.deepEqual(restoreTown(JSON.parse(JSON.stringify(town))),town);
-  assert.throws(()=>restoreTown({...town,wood:NaN}));assert.throws(()=>restoreTown({...town,upgrades:1.5}));
-  const bad=structuredClone(town);bad.cells[4*WIDTH]={type:'bell'};assert.throws(()=>restoreTown(bad));
-  const injected=structuredClone(town);injected.cells[1]={type:'<script>alert(1)</script>'};assert.throws(()=>restoreTown(injected));
-  assert.throws(()=>restoreTown({...town,stage:3,completed:true,festivalAt:Infinity}));
-});
-
-test('the festival rewards a water system the player has actually extended',()=>{
-  const town=createTown();town.wood=300;town.growth=100;
-  put(town,'gutter',2,3);put(town,'bell',2,5);
-  for(const [x,y]of [[1,3],[1,5],[0,3]])put(town,'garden',x,y);
-  advance(town,1);assert.equal(town.completed,false);assert.equal(town.stage,2);
-  for(const [x,y]of [[0,5],[0,6],[1,6],[2,6],[3,6],[4,6]])put(town,'canal',x,y);
-  assert.deepEqual(advance(town,1),['festival']);assert.equal(town.completed,true);
-});
-
-test('repeated building, removal, undo, upgrades, and saving preserve a valid town',()=>{
-  const town=createTown(),history=[];let seed=6726;
-  const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/2**32;};
-  for(let i=0;i<3000;i++){
-    const action=Math.floor(random()*9);
-    if(action===7&&history.length){if(undoChanges(town,history.at(-1)))history.pop();}
-    else if(action===8)upgrade(town);
-    else{const tool=Object.keys(TYPES)[action%6],x=Math.floor(random()*13),y=Math.floor(random()*9),result=build(town,tool,x,y);if(result.ok)history.push([result.change]);}
-    advance(town,random());
-    assert.ok(town.wood>=0&&Number.isFinite(town.wood));assert.ok(town.growth>=0&&town.growth<=999);
-    if(i%100===0)assert.deepEqual(restoreTown(JSON.parse(JSON.stringify(town))),town);
-  }
-  assert.equal(town.cells[4*WIDTH].type,'spring');assert.equal(town.cells[0].type,'rock');
-});
-
-test('original score is an eight-bar phrase with repeated motifs and a final cadence',()=>{
-  const counts={mill:1,gutter:1,bell:1};const events=Array.from({length:128},(_,step)=>scoreAt(step,counts,6)).flat();
-  assert.equal(CHORDS.length,8);assert.ok(events.some(e=>e.instrument==='pad'));
-  for(const event of events){assert.ok(Number.isFinite(midiHz(event.note)));assert.ok(event.note>=43&&event.note<=83);assert.ok(event.length>0);assert.ok(event.gain>0&&event.gain<=1.3);}
-  assert.deepEqual(scoreAt(0,counts,6).filter(e=>e.instrument==='gutter'),scoreAt(64,counts,6).filter(e=>e.instrument==='gutter'));
-  assert.equal(scoreAt(124,counts,6).find(e=>e.instrument==='gutter').note,74);
-  assert.deepEqual(scoreAt(128,counts,6),scoreAt(0,counts,6));
-  assert.deepEqual(scoreAt(0,{mill:0,gutter:0,bell:0},0),[]);
-});
+test('a crowded beat can be repaired by a free move',()=>{const t=bare();for(let y=0;y<9;y++)if(y!==4)put(t,'canal',0,y);for(const y of [0,1,2,3])put(t,'gutter',1,y);put(t,'canal',2,4);const before=t.wood;assert.equal(waterNetwork(t).crowded,1);assert.equal(moveBuilding(t,[1,3],[2,3]).ok,true);assert.equal(waterNetwork(t).crowded,0);assert.equal(t.wood,before);});
+test('forecasts include a newly connected branch and never mutate saved state',()=>{const t=bare();put(t,'canal',1,4);put(t,'canal',3,4);put(t,'bell',3,3);const saved=JSON.stringify(t),p=previewAction(t,'canal',2,4);assert.equal(p.after.activeCount,1);assert.equal(p.after.used,2);assert.equal(JSON.stringify(t),saved);put(t,'canal',2,4);assert.equal(waterNetwork(t).used,p.after.used);});
+test('building, remove, move, and grouped undo keep the reusable budget exact',()=>{const t=createTown();const c=put(t,'gutter',4,3),before=t.wood;const m=moveBuilding(t,[4,3],[3,3]);assert.equal(m.ok,true);assert.equal(undoChanges(t,m.changes),true);assert.equal(t.wood,before);assert.equal(t.cells[3*WIDTH+4].type,'gutter');const r=put(t,'remove',4,3);assert.equal(t.wood,before+14);assert.equal(undoChanges(t,[r]),true);assert.equal(undoChanges(t,[c]),true);assert.equal(spent(t)+t.wood,220);});
+test('no funds, occupied targets, protected spring, and invalid tools stay unchanged',()=>{const t=createTown();const saved=JSON.stringify(t);assert.equal(build(t,'canal',0,4).ok,false);assert.equal(build(t,'constructor',1,1).ok,false);assert.equal(moveBuilding(t,[2,5],[1,4]).ok,false);assert.equal(JSON.stringify(t),saved);});
+test('garden is visible scenery and consumes no water or music voice',()=>{const t=createTown();const n=waterNetwork(t);put(t,'garden',15,0);const after=waterNetwork(t);assert.equal(after.used,n.used);assert.equal(after.activeCount,n.activeCount);assert.equal(after.buildings.length,n.buildings.length);assert.equal(t.wood,192);});
+test('first performance needs editing and a full played phrase, once, then free play',()=>{const t=phrase(),n=waterNetwork(t);assert.equal(n.roles,3);assert.equal(n.beats,4);for(let i=0;i<15;i++)assert.equal(recordPlayback(t,n),false);assert.equal(t.completed,false);assert.equal(recordPlayback(t,n),true);assert.equal(recordPlayback(t,n),false);put(t,'garden',15,8);assert.equal(t.listenTicks,16);assert.equal(restoreTown(JSON.parse(JSON.stringify(t))).completed,true);});
+test('changing the phrase resets the unfinished performance listening period',()=>{const t=phrase(),n=waterNetwork(t);for(let i=0;i<8;i++)recordPlayback(t,n);assert.equal(t.listenTicks,8);put(t,'flow',4,3);assert.equal(t.listenTicks,0);assert.equal(recordPlayback(t,waterNetwork(t)),false);});
+test('new saves round-trip and reject corrupted budgets, shapes, settings and injection',()=>{const t=phrase();assert.deepEqual(restoreTown(JSON.parse(JSON.stringify(t))),t);for(const changes of [{wood:t.wood+1},{elapsed:Infinity},{scale:'__proto__'},{scene:'<script>'},{listenTicks:17},{completed:true}])assert.throws(()=>restoreTown({...t,...changes}));const bad=structuredClone(t);bad.cells[0]={type:'spring'};assert.throws(()=>restoreTown(bad));assert.throws(()=>restoreTown(oldTown()));});
+test('legacy user saves remain readable without conversion or numeric truncation',()=>{const old=oldTown();old.wood=999999;old.growth=999;delete old.arrangement;const raw=JSON.stringify(old),restored=restoreOld(JSON.parse(raw));assert.equal(restored.wood,999999);assert.equal(restored.growth,999);assert.equal(restored.cells.length,117);assert.equal(JSON.stringify(old),raw);});
+test('2000 edits, switches, moves, refunds, undo and saves preserve invariants',()=>{const t=createTown(),history=[];let seed=321;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/2**32;};for(let i=0;i<2000;i++){if(rand()<.18&&history.length){assert.equal(undoChanges(t,history.pop()),true);}else{const result=build(t,Object.keys(TYPES)[Math.floor(rand()*8)],Math.floor(rand()*16),Math.floor(rand()*9));if(result.ok)history.push([result.change]);}advance(t,rand());const n=waterNetwork(t);assert.ok(n.used<=n.capacity);assert.ok(n.beatCounts.every(n=>n<=3));assert.equal(spent(t)+t.wood,220);if(i%50===0)assert.deepEqual(restoreTown(JSON.parse(JSON.stringify(t))),t);}assert.deepEqual(lineCells([1,4],[3,2]),[[2,4],[3,4],[3,3],[3,2]]);});
+test('score repeats the placed phrase, keeps authored accompaniment, and has finite pitches',()=>{const t=phrase(),n=waterNetwork(t);for(let i=0;i<64;i++){assert.deepEqual(scoreAt(i,n),scoreAt(i+16,n));for(const e of [...scoreAt(i,n),...accompanimentAt(i,t.scale)])assert.ok(Number.isFinite(midiHz(e.note))&&e.length>0&&e.gain>0);}assert.deepEqual(accompanimentAt(64),accompanimentAt(0));assert.notDeepEqual(accompanimentAt(16),accompanimentAt(0));});
+test('audio visual callbacks follow scheduled audio times and mute does not schedule voices',()=>{const calls=[],audio=new TownAudio((step,notes)=>calls.push([step,notes.length]));audio.context={state:'running',currentTime:0};audio.nextTime=.05;audio.setTown(createTown(),waterNetwork(createTown()));audio.schedule();assert.equal(audio.voices,0);assert.equal(calls.length,0);audio.context.currentTime=.051;audio.flushVisuals();assert.deepEqual(calls,[[0,0]]);});
+test('the lesson waits for a placed instrument to actually play, including silent visual playback',()=>{const t=createTown();put(t,'gutter',4,3);const n=waterNetwork(t);recordPlayback(t,n,[]);assert.equal(t.heard,false);recordPlayback(t,n,scoreAt(2,n));assert.equal(t.heard,false);recordPlayback(t,n,scoreAt(4,n));assert.equal(t.heard,true);});
