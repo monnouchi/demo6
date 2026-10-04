@@ -14,6 +14,11 @@ export const TYPES = Object.freeze({
   cow: { name: '牛', cost: 0, demand: 0, description: '歩く柔らかな低音。風が一周したら空き地へ一歩。切替で音と歩みを止めます。水路は不要。' },
 });
 export const ANIMAL_TYPES=['goat','cow'];
+// Water capability is independent of whether an object makes music or walks.
+export const WATER_ROLES=Object.freeze({spring:'source',canal:'channel',mill:'receiver',gutter:'receiver',bell:'receiver',tree:'independent',garden:'independent',cow:'independent',goat:'independent'});
+export const waterRole=type=>Object.hasOwn(WATER_ROLES,type)?WATER_ROLES[type]:null;
+export const receivesWater=type=>waterRole(type)==='receiver';
+export const connectsToCanal=type=>['source','channel','receiver'].includes(waterRole(type));
 export const SCALES = Object.freeze({ d: { name: 'ニ長調 · D', root: 62 }, f: { name: 'ヘ長調 · F', root: 65 }, a: { name: 'イ長調 · A', root: 57 } });
 const DEGREES = [19, 16, 14, 12, 9, 7, 4, 2, 0];
 export const key = (x, y) => `${x},${y}`;
@@ -31,19 +36,19 @@ export function waterNetwork(town) {
   const wet=new Map(),queue=[[0,4,0]];
   for(let i=0;i<queue.length;i++) {
     const [x,y,d]=queue[i];if(wet.has(key(x,y)))continue;wet.set(key(x,y),d);
-    for(const [nx,ny]of neighbors(x,y)){const cell=cellAt(town,nx,ny);if(cell?.type==='canal'&&cell.open!==false&&!wet.has(key(nx,ny)))queue.push([nx,ny,d+1]);}
+    for(const [nx,ny]of neighbors(x,y)){const cell=cellAt(town,nx,ny);if(waterRole(cell?.type)==='channel'&&cell.open!==false&&!wet.has(key(nx,ny)))queue.push([nx,ny,d+1]);}
   }
   const raining=isRaining(town),atmosphere=raining?'rain':town.scene==='evening'?'night':'day',counts=Object.fromEntries(MUSICAL_TYPES.map(t=>[t,0]));
   const buildings=[];
   town.cells.forEach((cell,index)=>{
     if(!MUSICAL_TYPES.includes(cell?.type))return;
-    const x=index%WIDTH,y=Math.floor(index/WIDTH),distances=neighbors(x,y).map(([a,b])=>wet.get(key(a,b))).filter(d=>d!==undefined);
-    buildings.push({index,x,y,type:cell.type,id:cell.id,atmosphere,note:noteFor(town,y,cell.type),connected:['garden','tree',...ANIMAL_TYPES].includes(cell.type)||distances.length>0,distance:distances.length?Math.min(...distances)+1:Infinity,enabled:cell.enabled!==false,active:false,reason:cell.enabled===false?'closed':distances.length?'':'dry'});
+    const x=index%WIDTH,y=Math.floor(index/WIDTH),distances=receivesWater(cell.type)?neighbors(x,y).map(([a,b])=>wet.get(key(a,b))).filter(d=>d!==undefined):[],waterConnected=distances.length>0;
+    buildings.push({index,x,y,type:cell.type,id:cell.id,atmosphere,note:noteFor(town,y,cell.type),waterConnected,connected:!receivesWater(cell.type)||waterConnected,distance:waterConnected?Math.min(...distances)+1:Infinity,enabled:cell.enabled!==false,active:false,reason:cell.enabled===false?'closed':waterConnected?'':'dry'});
   });
   const groups=[];
   for(const b of buildings){
     if(!b.enabled){b.reason='closed';continue;}
-    const previous=groups.at(-1),joins=['mill','gutter','bell'].includes(b.type)&&previous?.type===b.type&&previous.y===b.y&&previous.x+previous.span===b.x;
+    const previous=groups.at(-1),joins=receivesWater(b.type)&&previous?.type===b.type&&previous.y===b.y&&previous.x+previous.span===b.x;
     if(joins){previous.members.push(b.index);previous.span++;previous.connected||=b.connected;}
     else groups.push({index:b.index,x:b.x,y:b.y,type:b.type,id:b.id,note:b.note,span:1,members:[b.index],connected:b.connected});
   }

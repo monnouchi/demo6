@@ -1,7 +1,7 @@
-import { WIDTH, HEIGHT, TYPES, cellAt, neighbors, key, noteFor } from './core.js?v=0.6.2';
+import { WIDTH, HEIGHT, TYPES, ANIMAL_TYPES, cellAt, neighbors, key, noteFor, connectsToCanal } from './core.js?v=0.6.3';
 import { noteName } from './music.js?v=0.6.2';
-import { buildingArt } from './art.js?v=0.6.2';
-export { icon, welcomeArt } from './art.js?v=0.6.2';
+import { buildingArt } from './art.js?v=0.6.3';
+export { icon, welcomeArt } from './art.js?v=0.6.3';
 export const VIEW_WIDTH=1088,VIEW_HEIGHT=666;
 export const center=(x,y)=>[64+x*64,94+y*58];
 export function renderTown(svg,town,network,tool,selection=null){
@@ -17,16 +17,16 @@ export function renderTown(svg,town,network,tool,selection=null){
   town.cells.forEach((cell,index)=>{
     if(!cell)return;const x=index%WIDTH,y=Math.floor(index/WIDTH),[cx,cy]=center(x,y),wet=network.wet.has(key(x,y));
     if(cell.type==='canal'){
-      const path=neighbors(x,y).filter(([a,b])=>cellAt(town,a,b)&&cellAt(town,a,b).type!=='garden').map(([a,b])=>{const[px,py]=center(a,b);return `M${cx} ${cy}L${(cx+px)/2} ${(cy+py)/2}`;}).join(' ')||`M${cx-9} ${cy}h18`;
-      canals+=`<path d="${path}" stroke="#c6b991" stroke-width="20" stroke-linecap="round"/><path d="${path}" stroke="${wet?(raining?'#5d9fad':'#85b9b0'):'#b7af91'}" stroke-width="12" stroke-linecap="round"/>${wet?`<path class="water-flow" d="${path}" stroke="#d3ece0" stroke-width="2" stroke-linecap="round"/>`:''}`;
+      const path=neighbors(x,y).filter(([a,b])=>connectsToCanal(cellAt(town,a,b)?.type)).map(([a,b])=>{const[px,py]=center(a,b);return `M${cx} ${cy}L${(cx+px)/2} ${(cy+py)/2}`;}).join(' ')||`M${cx-9} ${cy}h18`;
+      canals+=`<path data-canal="${index}" d="${path}" stroke="#c6b991" stroke-width="20" stroke-linecap="round"/><path d="${path}" stroke="${wet?(raining?'#5d9fad':'#85b9b0'):'#b7af91'}" stroke-width="12" stroke-linecap="round"/>${wet?`<path class="water-flow" d="${path}" stroke="#d3ece0" stroke-width="2" stroke-linecap="round"/>`:''}`;
       if(cell.open===false)canals+=`<path d="M${cx-6} ${cy-8}l12 16m-12 0 12-16" stroke="#9a704b" stroke-width="4" stroke-linecap="round"/>`;return;
     }
     const b=network.buildings.find(item=>item.index===index),active=b?.active??(cell.type==='spring'||cell.type==='garden');
-    if(b?.connected){const neighbor=neighbors(x,y).find(([a,c])=>network.wet.has(key(a,c)));if(neighbor){const[px,py]=center(...neighbor);canals+=`<path d="M${cx} ${cy+10}L${(cx+px)/2} ${(cy+py)/2}" stroke="#91bfb0" stroke-width="9" stroke-linecap="round"/>`;}}
+    if(b?.waterConnected){const neighbor=neighbors(x,y).find(([a,c])=>network.wet.has(key(a,c)));if(neighbor){const[px,py]=center(...neighbor);canals+=`<path data-water-receiver="${index}" d="M${cx} ${cy+10}L${(cx+px)/2} ${(cy+py)/2}" stroke="#91bfb0" stroke-width="9" stroke-linecap="round"/>`;}}
     const opacity=b&&!active ? .63 : 1;
     buildings+=`<g id="building-${index}" data-building="${index}" ${b?.id?`data-animal-id="${b.id}"`:""} transform="translate(${cx} ${cy}) scale(.88)" opacity="${opacity}"><ellipse class="note-glow" cx="0" cy="13" rx="37" ry="22" fill="#fff2ad" opacity="0"/><g filter="url(#shade)">${buildingArt(cell.type,cell.type==='garden'||cell.type==='spring',index%4)}</g>`;
     if(cell.type==='garden')buildings+=`<path d="M-26 28q23 7 49-2" stroke="#efe0b8" stroke-width="5" stroke-linecap="round"/><circle cx="-25" cy="5" r="3" fill="#dbb382"/><circle cx="24" cy="10" r="3" fill="#c1929a"/>`;
-    if(b&&!active)buildings+=`<g data-interface="true"><circle cx="24" cy="-20" r="9" fill="${b.reason==='dry'?'#f3ecda':'#e5c28b'}"/><text x="24" y="-16" font-size="12" text-anchor="middle" fill="#896744">${b.reason==='closed'?'Ⅱ':'·'}</text></g>`;
+    if(b&&!active){const animal=ANIMAL_TYPES.includes(cell.type),markerX=animal?-23:24,markerY=animal?-22:-20;buildings+=`<g data-interface="true"><circle cx="${markerX}" cy="${markerY}" r="${animal?7:9}" fill="${b.reason==='dry'?'#f3ecda':'#e5c28b'}"/><text x="${markerX}" y="${markerY+4}" font-size="${animal?10:12}" text-anchor="middle" fill="#896744">${b.reason==='closed'?'Ⅱ':'·'}</text></g>`;}
     buildings+='</g>';
   });
   let links='';for(const group of network.groups){if(group.span<2)continue;const[cx,cy]=center(group.x,group.y);links+=`<g class="longhouse" data-building="long-${group.index}"><path d="M${cx+20} ${cy-18}H${cx+(group.span-1)*64-20}" stroke="#9f8e6a" stroke-width="13" stroke-linecap="round"/><path d="M${cx+20} ${cy-21}H${cx+(group.span-1)*64-20}" stroke="#d7c797" stroke-width="5" stroke-linecap="round"/></g>`;}
