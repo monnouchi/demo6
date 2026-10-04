@@ -1,6 +1,6 @@
-import { WIDTH, HEIGHT, TYPES, MUSICAL_TYPES, createTown, waterNetwork, build, advance, upgrade, undoChanges, lineCells, restoreTown } from './core.js';
-import { renderTown, setCursor, center, icon, welcomeArt } from './render.js';
-import { TownAudio, CHORDS } from './music.js';
+import { WIDTH, HEIGHT, TYPES, MUSICAL_TYPES, createTown, waterNetwork, build, advance, upgrade, undoChanges, lineCells, restoreTown } from './core.js?v=0.2.1';
+import { renderTown, setCursor, center, icon, welcomeArt } from './render.js?v=0.2.1';
+import { TownAudio, CHORDS } from './music.js?v=0.2.1';
 
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'mon.demo6.town.v1';
