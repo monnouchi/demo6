@@ -23,13 +23,20 @@
   <main class="game-layout">
     <section class="town-panel" aria-label="街の建設画面">
       <div class="town-heading"><div><p class="eyebrow">A TOWN, COMPOSED BY YOU</p><h1>水をつなぐ。街がうたう。</h1></div><span class="weather-chip" id="weather-label">☀ おだやかな昼</span></div>
+      <button id="mobile-goal" class="mobile-goal" aria-label="街の目標を詳しく見る"><span id="mobile-goal-text"></span><span>目標を見る ↓</span></button>
       <div class="resource-bar" aria-label="街の状態">
         <div class="resource wood"><span class="resource-icon" aria-hidden="true">▰</span><span><small>木材</small><strong id="wood-value">92</strong></span><span class="resource-rate" id="wood-rate">+1.2 / 秒</span></div>
         <div class="resource"><span class="resource-icon water-icon" aria-hidden="true">◈</span><span><small>水のある建物</small><strong><span id="active-value">1</span><em>棟</em></strong></span></div>
         <div class="resource color-resource"><span class="resource-icon" aria-hidden="true">✳</span><span><small>街の彩り</small><strong id="growth-value">0</strong></span></div>
       </div>
       <div class="board-shell" id="board-shell">
+        <div class="board-viewport" id="board-viewport">
         <svg id="town" viewBox="0 0 900 650" fill="none" role="grid" aria-label="13列9行の街。水路や建物を置く場所を選択" tabindex="0"></svg>
+        </div>
+        <div class="camera-controls" role="group" aria-label="盤面の表示">
+          <button id="zoom-out" aria-label="盤面を縮小する" disabled>−</button><button id="zoom-in" aria-label="盤面を拡大する">＋</button>
+          <button id="pan-button" aria-label="盤面を動かすモードに切り替える" aria-pressed="false">移動</button><button id="zoom-reset" aria-label="街全体を表示する">全体</button>
+        </div>
         <div class="board-caption"><span class="live-dot"></span><span id="board-caption">泉から、好きな方向へ。</span></div>
         <button class="undo-button" id="undo-button" aria-label="ひとつ前の建設を戻す" disabled>↶ <span>ひとつ戻す</span></button>
         <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -78,14 +85,15 @@
   <dialog id="help-dialog">
     <button class="dialog-close" data-close="help-dialog" aria-label="遊び方を閉じる">×</button>
     <p class="eyebrow">HOW TO PLAY</p><h2>水の通り道を、自由に。</h2>
-    <ol class="help-list"><li><b>水路を引く</b><p>水路を選び、マスをクリック／タップ。押したままなぞると、つながった水路を引けます。泉につながると水が流れます。</p></li><li><b>建物を置く</b><p>水車・雨樋・鐘・花園を、水路の上下左右に置きます。水が届くと動き、水車は木材を、ほかの建物は彩りを育てます。</p></li><li><b>あなたの街の祝祭へ</b><p>3種の楽器、動く建物6棟、彩り60を目指しましょう。達成しても自由に建設を続けられます。</p></li></ol>
+    <ol class="help-list"><li><b>水路を引く</b><p>水路を選び、マスをクリック／タップ。押したままなぞると、つながった水路を引けます。泉につながると水が流れます。</p></li><li><b>建物を置く</b><p>水車・雨樋・鐘・花園を、水路の上下左右に置きます。水が届くと動き、水車は木材を、ほかの建物は彩りを育てます。</p></li><li><b>あなたの街の祝祭へ</b><p>3種の楽器、動く建物6棟、流れる水路8マス、彩り60を目指しましょう。達成しても自由に建設を続けられます。</p></li></ol>
     <div class="help-tip">建物をタップすると様子がわかります。撤去すると木材はすべて戻ります。水が足りない時は泉を深くしましょう。</div>
-    <p class="small muted">PC：1〜6で道具選択、矢印キーでマス移動、Enterで建設、Ctrl/⌘＋Zで戻す、Mでミュート。<br>スマホ：水路をなぞって建設。盤面の外でスクロールできます。</p>
+    <p class="small muted">PC：1〜6で道具選択、矢印キーでマス移動、Enterで建設、Ctrl/⌘＋Zで戻す、Mでミュート。<br>スマホ：水路をなぞって建設。＋で拡大するとマスを選びやすくなります。「移動」で盤面をドラッグ、「全体」で戻れます。盤面の外でページをスクロールできます。</p>
   </dialog>
 
   <dialog id="menu-dialog">
     <button class="dialog-close" data-close="menu-dialog" aria-label="設定を閉じる">×</button><p class="eyebrow">YOUR TOWN</p><h2>街の設定</h2>
     <p>街はこの端末のブラウザに自動保存されます。音のオン／オフは毎回選べます。</p>
+    <p id="menu-status" class="menu-status" role="status" aria-live="polite" hidden></p>
     <button class="secondary-button" id="export-button">街をファイルに保存</button>
     <label class="secondary-button import-label">保存した街を読み込む<input id="import-input" type="file" accept=".json,application/json"></label>
     <button class="danger-button" id="reset-button">新しい街をはじめる</button>

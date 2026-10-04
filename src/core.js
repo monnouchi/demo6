@@ -53,7 +53,7 @@ export function waterNetwork(town) {
   const efficiency = demand ? Math.min(1, capacity / demand) : 1;
   const woodRate = counts.mill * 1.2 * efficiency;
   const growthRate = (counts.mill * 0.10 + counts.gutter * (raining ? 0.55 : 0.38) + counts.bell * 0.32 + counts.garden * 0.65) * efficiency;
-  return { wet, buildings, counts, activeCount, demand, capacity, efficiency, woodRate, growthRate, raining, roles: MUSICAL_TYPES.filter(type => counts[type] > 0).length };
+  return { wet, canalCount: wet.size - 1, buildings, counts, activeCount, demand, capacity, efficiency, woodRate, growthRate, raining, roles: MUSICAL_TYPES.filter(type => counts[type] > 0).length };
 }
 export function build(town, tool, x, y) {
   if (!inside(x, y) || !TYPES[tool]) return { ok: false, reason: '街のマスを選んでください。' };
@@ -97,7 +97,7 @@ export function advance(town, seconds, network = waterNetwork(town)) {
   const events = [];
   if (town.stage === 0 && network.roles >= 2) { town.stage = 1; town.wood += 20; events.push('duet'); }
   if (town.stage === 1 && network.roles === 3) { town.stage = 2; town.wood += 25; events.push('trio'); }
-  if (!town.completed && network.roles === 3 && network.activeCount >= 6 && town.growth >= 60) {
+  if (!town.completed && network.roles === 3 && network.activeCount >= 6 && network.canalCount >= 8 && town.growth >= 60) {
     town.completed = true; town.stage = 3; town.festivalAt = town.elapsed; events.push('festival');
   }
   return events;

@@ -1,12 +1,15 @@
 import { WIDTH, HEIGHT, TYPES, MUSICAL_TYPES, createTown, waterNetwork, build, advance, upgrade, undoChanges, lineCells, restoreTown } from './core.js';
-import { renderTown, setCursor, icon, welcomeArt } from './render.js';
+import { renderTown, setCursor, center, icon, welcomeArt } from './render.js';
 import { TownAudio, CHORDS } from './music.js';
 
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'mon.demo6.town.v1';
+const compactNumber = new Intl.NumberFormat('ja-JP', { notation: 'compact', maximumFractionDigits: 1 });
 let town = createTown(), saveProblem = '', running = false, tool = 'canal', network;
 let lastFrame = 0, lastUi = 0, lastSave = 0, cursor = [2, 3], keyboardMode = false;
 let stroke = null, lastPointer = null, toastTimer = null, history = [], ensembleSignature = '';
+const camera = { zoom: 1, x: 0, y: 0, pan: false, drag: null };
+let lastGrowthStage = 0;
 const audio = new TownAudio();
 try {
   const data = localStorage.getItem(SAVE_KEY);
@@ -29,6 +32,7 @@ function redraw() { network=waterNetwork(town);audio.setNetwork(network);renderT
 function selectTool(type) {
   if(!TYPES[type])return;
   tool=type;
+  camera.pan=false;updateCamera();
   document.querySelectorAll('.tool-button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.tool===type)));
   $('tool-description').textContent=TYPES[type].description;$('town').dataset.tool=type;
   const hover=$('town').querySelector('#hover-cell');if(hover)hover.classList.toggle('selection-removal',type==='remove');
@@ -46,7 +50,8 @@ async function enableSound() {
 }
 function goalCheck(label, done, value='') { return `<div class="goal-check ${done?'done':''}"><span class="check-mark">${done?'✓':''}</span><span>${label}</span><span class="check-value">${value}</span></div>`; }
 function updateUi() {
-  $('wood-value').textContent=Math.floor(town.wood).toLocaleString('ja-JP');$('wood-rate').textContent=`+${network.woodRate.toFixed(1)} / 秒`;
+  const wood=Math.floor(town.wood);
+  $('wood-value').textContent=wood>=10000?compactNumber.format(wood):wood.toLocaleString('ja-JP');$('wood-value').title=`木材 ${wood.toLocaleString('ja-JP')}`;$('wood-rate').textContent=`+${network.woodRate.toFixed(1)} / 秒`;
   $('active-value').textContent=network.activeCount;$('growth-value').textContent=Math.floor(town.growth);
   $('weather-label').textContent=network.raining?'☂ やさしい雨':'☀ おだやかな昼';
   $('flow-label').textContent=`${network.demand} / ${network.capacity}`;
@@ -69,15 +74,16 @@ function updateUi() {
     $('goal-checks').innerHTML=MUSICAL_TYPES.map(type=>goalCheck(TYPES[type].name,network.counts[type]>0,network.counts[type]>0?'水が届いた':'まだ')).join('');
     $('goal-footnote').textContent='達成で木材 +25。合奏は次の小節から。';progress=network.roles/3;
   } else if(stage===2) {
-    $('goal-title').textContent='小さな水の祝祭';$('goal-copy').textContent='動く建物を6棟へ。花園や楽器を増やして、彩り60の街を育てよう。';
-    $('goal-checks').innerHTML=goalCheck('楽器 3種',network.roles===3,`${network.roles}/3`)+goalCheck('動く建物',network.activeCount>=6,`${network.activeCount}/6`)+goalCheck('街の彩り',town.growth>=60,`${Math.floor(town.growth)}/60`);
-    $('goal-footnote').textContent='花園は彩りを育てるのが得意です。';progress=(Math.min(1,network.roles/3)+Math.min(1,network.activeCount/6)+Math.min(1,town.growth/60))/3;
+    $('goal-title').textContent='小さな水の祝祭';$('goal-copy').textContent='水路を自由に伸ばして、動く建物を6棟へ。花園や楽器と、彩り60の街を育てよう。';
+    $('goal-checks').innerHTML=goalCheck('楽器 3種',network.roles===3,`${network.roles}/3`)+goalCheck('動く建物',network.activeCount>=6,`${network.activeCount}/6`)+goalCheck('流れる水路',network.canalCount>=8,`${network.canalCount}/8`)+goalCheck('街の彩り',town.growth>=60,`${Math.floor(town.growth)}/60`);
+    $('goal-footnote').textContent='水路の形は自由。花園は彩りが得意です。';progress=(Math.min(1,network.roles/3)+Math.min(1,network.activeCount/6)+Math.min(1,network.canalCount/8)+Math.min(1,town.growth/60))/4;
   } else {
     $('goal-title').textContent='この街だけの合奏';$('goal-copy').textContent='小さな水の祝祭を達成しました。水路を広げたり、庭を増やしたり。街の続きは、あなたの手に。';
     $('goal-checks').innerHTML=goalCheck('祝祭の記録',true,`${Math.floor(town.festivalAt/60)}分${Math.floor(town.festivalAt%60)}秒`);
     $('goal-footnote').textContent='あなたの仕組みから生まれた風景。';progress=1;
   }
   $('goal-progress').style.width=`${Math.min(100,progress*100)}%`;
+  $('mobile-goal-text').textContent=stage===0?`まずは楽器を2種へ · ${network.roles}/2`:stage===1?`3つの音をつなぐ · ${network.roles}/3`:stage===2?`祝祭へ · 建物${network.activeCount}/6 水路${network.canalCount}/8 彩り${Math.floor(town.growth)}/60`:'祝祭達成！街の続きをつくろう';
   const playing=!!audio.context&&!audio.muted;
   const signature=MUSICAL_TYPES.map(t=>network.counts[t]).join(',')+playing;
   if(signature!==ensembleSignature) {
@@ -102,6 +108,35 @@ function place(x,y,quiet=false) {
 function finishStroke() {
   if(stroke?.length){history.push(stroke);if(history.length>30)history.shift();save();}
   stroke=null;lastPointer=null;updateUi();
+  camera.drag=null;
+}
+function updateCamera() {
+  const viewport=$('board-viewport');
+  camera.x=Math.max(viewport.clientWidth*(1-camera.zoom),Math.min(0,camera.x));
+  camera.y=Math.max(viewport.clientHeight*(1-camera.zoom),Math.min(0,camera.y));
+  $('town').style.transform=`translate(${camera.x}px,${camera.y}px) scale(${camera.zoom})`;
+  $('zoom-out').disabled=camera.zoom<=1;$('zoom-in').disabled=camera.zoom>=2;
+  if(camera.zoom<=1)camera.pan=false;
+  $('pan-button').disabled=camera.zoom<=1;
+  $('pan-button').setAttribute('aria-pressed',String(camera.pan));
+  $('pan-button').setAttribute('aria-label',camera.pan?'建設モードに戻る':'盤面を動かすモードに切り替える');
+  $('board-viewport').classList.toggle('pan-mode',camera.pan);
+}
+function zoomBy(delta) {
+  const oldZoom=camera.zoom;camera.zoom=Math.max(1,Math.min(2,camera.zoom+delta));
+  // Keep the visible center still while changing scale.
+  const viewport=$('board-viewport'),ratio=camera.zoom/oldZoom;
+  camera.x=viewport.clientWidth/2-(viewport.clientWidth/2-camera.x)*ratio;
+  camera.y=viewport.clientHeight/2-(viewport.clientHeight/2-camera.y)*ratio;updateCamera();
+  if(oldZoom===1&&delta>0){const [x,y]=center(...cursor),scale=$('town').clientWidth/900;camera.x=viewport.clientWidth/2-x*scale*camera.zoom;camera.y=viewport.clientHeight/2-y*scale*camera.zoom;updateCamera();}
+}
+function revealCursor() {
+  if(camera.zoom===1)return;
+  const [x,y]=center(...cursor),scale=$('town').clientWidth/900*camera.zoom,viewport=$('board-viewport');
+  const px=x*scale+camera.x,py=y*scale+camera.y;
+  if(px<30)camera.x+=30-px;else if(px>viewport.clientWidth-30)camera.x-=px-viewport.clientWidth+30;
+  if(py<30)camera.y+=30-py;else if(py>viewport.clientHeight-30)camera.y-=py-viewport.clientHeight+30;
+  updateCamera();
 }
 function pointFromEvent(event) {
   const matrix=$('town').getScreenCTM();if(!matrix)return null;
@@ -125,6 +160,7 @@ function frame(time) {
   if(running&&!document.hidden) {
     const events=advance(town,dt,network);
     if(network.raining!==(town.elapsed%72>=54)){redraw();if(network.raining)toast('やさしい雨。泉の水量と雨樋の彩りが増えています。');}
+    const growthStage=Math.min(3,Math.floor(town.growth/20));if(growthStage!==lastGrowthStage){lastGrowthStage=growthStage;redraw();}
     for(const event of events) {
       if(event==='duet')toast('はじめの掛け合い！木材が20増えました。');
       if(event==='trio')toast('3つの音がひとつに。木材が25増えました。');
@@ -145,18 +181,21 @@ async function start(sound) {
 $('build-bar').innerHTML=Object.entries(TYPES).map(([type,data],i)=>`<button class="tool-button" data-tool="${type}" aria-label="${data.name}${type==='remove'?'、木材は戻ります':`、木材${data.cost}`}" aria-pressed="${type===tool}"><span class="tool-icon" aria-hidden="true">${icon(type)}</span><span><b>${data.name}</b><small>${type==='remove'?'材料を返す':`木材 ${data.cost}`}</small></span></button>`).join('');
 $('build-bar').addEventListener('click',event=>{const button=event.target.closest('[data-tool]');if(button)selectTool(button.dataset.tool);});
 $('town').addEventListener('pointerdown',event=>{
-  if(!running||event.button!==0)return;
+  if(!running||event.button!==0||!event.isPrimary)return;
+  if(camera.pan){event.preventDefault();camera.drag={startX:event.clientX,startY:event.clientY,x:camera.x,y:camera.y};$('town').setPointerCapture(event.pointerId);return;}
   const position=pointFromEvent(event);if(!position)return;
   event.preventDefault();keyboardMode=false;setCursor($('town'),null,true);cursor=position;
   stroke=[];lastPointer=position;$('town').setPointerCapture(event.pointerId);place(...position);
 });
 $('town').addEventListener('pointermove',event=>{
+  if(!event.isPrimary)return;
+  if(camera.drag){camera.x=camera.drag.x+event.clientX-camera.drag.startX;camera.y=camera.drag.y+event.clientY-camera.drag.startY;updateCamera();return;}
   const position=pointFromEvent(event);setCursor($('town'),position);
-  if(!stroke||!position||!lastPointer||(tool!=='canal'&&tool!=='remove'))return;
+  if(!event.isPrimary||!stroke||!position||!lastPointer||(tool!=='canal'&&tool!=='remove'))return;
   const cells=lineCells(lastPointer,position);for(const [x,y]of cells)place(x,y,true);lastPointer=position;
 });
-$('town').addEventListener('pointerup',finishStroke);
-$('town').addEventListener('pointercancel',finishStroke);
+$('town').addEventListener('pointerup',event=>{if(event.isPrimary)finishStroke();});
+$('town').addEventListener('pointercancel',event=>{if(event.isPrimary)finishStroke();});
 $('town').addEventListener('lostpointercapture',()=>{if(stroke)finishStroke();});
 $('town').addEventListener('pointerleave',()=>setCursor($('town'),null));
 $('town').addEventListener('focus',()=>{keyboardMode=true;setCursor($('town'),cursor,true);});
@@ -164,7 +203,7 @@ $('town').addEventListener('blur',()=>{keyboardMode=false;setCursor($('town'),nu
 $('town').addEventListener('keydown',event=>{
   if(!running)return;
   const moves={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
-  if(moves[event.key]){event.preventDefault();cursor=[Math.max(0,Math.min(WIDTH-1,cursor[0]+moves[event.key][0])),Math.max(0,Math.min(HEIGHT-1,cursor[1]+moves[event.key][1]))];keyboardMode=true;setCursor($('town'),cursor,true);}
+  if(moves[event.key]){event.preventDefault();cursor=[Math.max(0,Math.min(WIDTH-1,cursor[0]+moves[event.key][0])),Math.max(0,Math.min(HEIGHT-1,cursor[1]+moves[event.key][1]))];keyboardMode=true;setCursor($('town'),cursor,true);revealCursor();}
   if(event.key==='Enter'||event.key===' '){event.preventDefault();stroke=[];place(...cursor);finishStroke();}
 });
 document.addEventListener('keydown',event=>{
@@ -174,9 +213,14 @@ document.addEventListener('keydown',event=>{
   if(event.key.toLowerCase()==='m')$('sound-button').click();
 });
 $('undo-button').addEventListener('click',undo);
+$('zoom-in').addEventListener('click',()=>zoomBy(.5));$('zoom-out').addEventListener('click',()=>zoomBy(-.5));
+$('pan-button').addEventListener('click',()=>{camera.pan=!camera.pan;updateCamera();toast(camera.pan?'盤面をドラッグして見渡せます。道具を選ぶと建設に戻ります。':'建設に戻りました。',2200);});
+$('zoom-reset').addEventListener('click',()=>{camera.zoom=1;camera.x=0;camera.y=0;camera.pan=false;updateCamera();});
+$('mobile-goal').addEventListener('click',()=>document.querySelector('.goal-card').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'}));
+window.addEventListener('resize',updateCamera);
 $('sound-button').addEventListener('click',async()=>{if(!audio.context||audio.muted)await enableSound();else{audio.setMuted(true);updateSoundUi();}updateUi();});
 $('help-button').addEventListener('click',()=>$('help-dialog').showModal());
-$('menu-button').addEventListener('click',()=>$('menu-dialog').showModal());
+$('menu-button').addEventListener('click',()=>{$('menu-status').hidden=true;$('menu-dialog').showModal();});
 document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>$ (button.dataset.close).close()));
 $('start-sound').addEventListener('click',()=>start(true));$('start-silent').addEventListener('click',()=>start(false));
 $('upgrade-button').addEventListener('click',()=>{const result=upgrade(town);if(result.ok){redraw();save();toast('泉が深くなり、水量が6増えました。');}else toast(result.reason);});
@@ -190,12 +234,14 @@ $('export-button').addEventListener('click',()=>{
 });
 $('import-input').addEventListener('change',async event=>{
   const file=event.target.files[0];if(!file)return;
+  $('menu-status').hidden=true;
   try{if(file.size>100000)throw new Error('街のファイルが大きすぎます。');const loaded=restoreTown(JSON.parse(await file.text()));town=loaded;history=[];redraw();save();$('menu-dialog').close();toast('保存した街を読み込みました。');}
-  catch(error){toast(error instanceof SyntaxError?'街のJSONファイルを選んでください。':error.message,5000);}
+  catch(error){$('menu-status').textContent=error instanceof SyntaxError?'街のJSONファイルを選んでください。':error.message;$('menu-status').hidden=false;}
   event.target.value='';
 });
 document.addEventListener('visibilitychange',()=>{lastFrame=0;if(document.hidden){save();audio.suspend().catch(()=>{});}else audio.resume().catch(()=>{});});
-window.addEventListener('pagehide',()=>{save();audio.close();});
+window.addEventListener('pagehide',event=>{save();if(event.persisted)audio.suspend().catch(()=>{});else audio.close();});
+window.addEventListener('pageshow',event=>{if(event.persisted){lastFrame=0;audio.resume().catch(()=>{});}});
 $('welcome-art').innerHTML=welcomeArt();
 selectTool('canal');updateSoundUi();redraw();
 $('welcome-dialog').showModal();requestAnimationFrame(frame);

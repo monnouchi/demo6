@@ -75,7 +75,7 @@ export class TownAudio {
   constructor() { this.context = null; this.master = null; this.timer = null; this.muted = true; this.stepIndex = 0; this.network = null; this.voices = 0; this.queuedParts = null; this.parts = { mill: 1, gutter: 0, bell: 0 }; this.activeCount = 1; this.lastBar = 0; }
   setNetwork(network) { this.network = network; this.queuedParts = { ...network.counts }; }
   async start() {
-    if (!this.context) {
+    if (!this.context || this.context.state === 'closed') {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) throw new Error('このブラウザでは音を使えません。音なしで遊べます。');
       this.context = new AudioContextClass();
@@ -114,5 +114,5 @@ export class TownAudio {
   }
   async suspend() { if(this.context)await this.context.suspend(); }
   async resume() { if(this.context&&this.context.state==='suspended') { await this.context.resume();this.nextTime=this.context.currentTime+.08; } }
-  async close() { if(this.timer)clearInterval(this.timer);this.timer=null;if(this.context&&this.context.state!=='closed')await this.context.close(); }
+  async close() { if(this.timer)clearInterval(this.timer);this.timer=null;this.muted=true;if(this.context&&this.context.state!=='closed')await this.context.close(); }
 }

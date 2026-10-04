@@ -55,6 +55,8 @@ test('a free-form six-building town reaches a festival once and can continue',()
   const town=createTown();put(town,'gutter',2,3);put(town,'bell',2,5);advance(town,.1);
   for(const [x,y]of [[1,3],[1,5],[0,3]])put(town,'garden',x,y);
   assert.equal(waterNetwork(town).activeCount,6);
+  for(const [x,y]of [[0,5],[0,6],[1,6],[2,6],[3,6],[4,6]])put(town,'canal',x,y);
+  assert.equal(waterNetwork(town).canalCount,8);
   let festivals=0;for(let i=0;i<90;i++)festivals+=advance(town,1).filter(event=>event==='festival').length;
   assert.equal(festivals,1);assert.equal(town.completed,true);assert.equal(town.stage,3);assert.ok(town.growth>=60);
   const before=town.growth;advance(town,1);assert.ok(town.growth>before);assert.equal(advance(town,1).length,0);
@@ -66,6 +68,30 @@ test('save round-trip preserves completed towns and rejects invalid or injected 
   const bad=structuredClone(town);bad.cells[4*WIDTH]={type:'bell'};assert.throws(()=>restoreTown(bad));
   const injected=structuredClone(town);injected.cells[1]={type:'<script>alert(1)</script>'};assert.throws(()=>restoreTown(injected));
   assert.throws(()=>restoreTown({...town,stage:3,completed:true,festivalAt:Infinity}));
+});
+
+test('the festival rewards a water system the player has actually extended',()=>{
+  const town=createTown();town.wood=300;town.growth=100;
+  put(town,'gutter',2,3);put(town,'bell',2,5);
+  for(const [x,y]of [[1,3],[1,5],[0,3]])put(town,'garden',x,y);
+  advance(town,1);assert.equal(town.completed,false);assert.equal(town.stage,2);
+  for(const [x,y]of [[0,5],[0,6],[1,6],[2,6],[3,6],[4,6]])put(town,'canal',x,y);
+  assert.deepEqual(advance(town,1),['festival']);assert.equal(town.completed,true);
+});
+
+test('repeated building, removal, undo, upgrades, and saving preserve a valid town',()=>{
+  const town=createTown(),history=[];let seed=6726;
+  const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/2**32;};
+  for(let i=0;i<3000;i++){
+    const action=Math.floor(random()*9);
+    if(action===7&&history.length){if(undoChanges(town,history.at(-1)))history.pop();}
+    else if(action===8)upgrade(town);
+    else{const tool=Object.keys(TYPES)[action%6],x=Math.floor(random()*13),y=Math.floor(random()*9),result=build(town,tool,x,y);if(result.ok)history.push([result.change]);}
+    advance(town,random());
+    assert.ok(town.wood>=0&&Number.isFinite(town.wood));assert.ok(town.growth>=0&&town.growth<=999);
+    if(i%100===0)assert.deepEqual(restoreTown(JSON.parse(JSON.stringify(town))),town);
+  }
+  assert.equal(town.cells[4*WIDTH].type,'spring');assert.equal(town.cells[0].type,'rock');
 });
 
 test('original score is an eight-bar phrase with repeated motifs and a final cadence',()=>{
