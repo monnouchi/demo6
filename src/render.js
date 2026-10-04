@@ -1,7 +1,7 @@
-import { WIDTH, HEIGHT, TYPES, cellAt, neighbors, key, noteFor } from './core.js?v=0.4.1';
-import { noteName } from './music.js?v=0.4.1';
-import { buildingArt } from './art.js?v=0.4.1';
-export { icon, welcomeArt } from './art.js?v=0.4.1';
+import { WIDTH, HEIGHT, TYPES, cellAt, neighbors, key, noteFor } from './core.js?v=0.5.0';
+import { noteName } from './music.js?v=0.5.0';
+import { buildingArt } from './art.js?v=0.5.0';
+export { icon, welcomeArt } from './art.js?v=0.5.0';
 export const VIEW_WIDTH=1088,VIEW_HEIGHT=666;
 export const center=(x,y)=>[64+x*64,94+y*58];
 export function renderTown(svg,town,network,tool,selection=null){
@@ -26,26 +26,28 @@ export function renderTown(svg,town,network,tool,selection=null){
     const opacity=b&&!active ? .63 : 1;
     buildings+=`<g id="building-${index}" data-building="${index}" transform="translate(${cx} ${cy}) scale(.88)" opacity="${opacity}"><ellipse class="note-glow" cx="0" cy="13" rx="37" ry="22" fill="#fff2ad" opacity="0"/><g filter="url(#shade)">${buildingArt(cell.type,cell.type==='garden'||cell.type==='spring',index%4)}</g>`;
     if(cell.type==='garden')buildings+=`<path d="M-26 28q23 7 49-2" stroke="#efe0b8" stroke-width="5" stroke-linecap="round"/><circle cx="-25" cy="5" r="3" fill="#dbb382"/><circle cx="24" cy="10" r="3" fill="#c1929a"/>`;
-    if(b&&!active)buildings+=`<g data-interface="true"><circle cx="24" cy="-20" r="9" fill="${b.reason==='dry'?'#f3ecda':'#e5c28b'}"/><text x="24" y="-16" font-size="12" text-anchor="middle" fill="#896744">${b.reason==='closed'?'Ⅱ':b.reason==='crowded'?'3':b.reason==='water'?'!':'·'}</text></g>`;
+    if(b&&!active)buildings+=`<g data-interface="true"><circle cx="24" cy="-20" r="9" fill="${b.reason==='dry'?'#f3ecda':'#e5c28b'}"/><text x="24" y="-16" font-size="12" text-anchor="middle" fill="#896744">${b.reason==='closed'?'Ⅱ':'·'}</text></g>`;
     buildings+='</g>';
   });
-  body+=canals+buildings;
+  let links='';for(const group of network.groups){if(group.span<2)continue;const[cx,cy]=center(group.x,group.y);links+=`<g class="longhouse" data-building="long-${group.index}"><path d="M${cx+20} ${cy-18}H${cx+(group.span-1)*64-20}" stroke="#9f8e6a" stroke-width="13" stroke-linecap="round"/><path d="M${cx+20} ${cy-21}H${cx+(group.span-1)*64-20}" stroke="#d7c797" stroke-width="5" stroke-linecap="round"/></g>`;}
+  body+=canals+links+buildings;
   if(evening)body+='<path d="M1021 16a11 11 0 1 0 14 14 13 13 0 0 1-14-14" fill="#ece5b9"/>';
   if(raining){body+='<g class="rain-layer" pointer-events="none">';for(let i=0;i<54;i++){const x=40+(i*127)%1020,y=25+(i*89)%560;body+=`<path class="rain-drop" style="animation-delay:-${(i%15)/10}s" d="M${x} ${y}l-5 17" stroke="#709daf" stroke-width="1.8" opacity=".43"/>`;if(i%6===0)body+=`<ellipse class="rain-ripple" style="animation-delay:-${i/12}s" cx="${x-10}" cy="${y+30}" rx="8" ry="3" fill="none" stroke="#b7d6db" stroke-width="1.7"/>`;}body+='</g>';}
   body+='<g data-interface="true" class="score-guides" aria-hidden="true">';
   for(let x=0;x<WIDTH;x++){const[cx]=center(x,0);body+=`<text x="${cx}" y="634" text-anchor="middle" font-size="12" fill="#6d8b70">${x%2===0?x/2+1:'·'}</text>`;if(x%4===0)body+=`<path d="M${cx-32} 55v533" stroke="#89a886" opacity=".28" stroke-width="${x===8?2:1}"/>`;}
   for(let y=0;y<HEIGHT;y++){const[,cy]=center(0,y);body+=`<text x="13" y="${cy+4}" text-anchor="middle" font-size="10" fill="#719275" transform="rotate(-90 13 ${cy+4})">${noteName(noteFor(town,y))}</text>`;}
-  body+='<text x="304" y="655" text-anchor="middle" font-size="10" fill="#7a9777">1小節目</text><text x="816" y="655" text-anchor="middle" font-size="10" fill="#7a9777">2小節目</text><rect id="playhead" x="35" y="54" width="58" height="546" rx="10" fill="#fff5b1" opacity="0"/><path id="playhead-line" d="M64 50v555" stroke="#c1aa64" stroke-width="2" opacity="0"/>';
+  body+='<text x="304" y="655" text-anchor="middle" font-size="10" fill="#7a9777">1小節目</text><text x="816" y="655" text-anchor="middle" font-size="10" fill="#7a9777">2小節目</text><rect id="playhead" x="35" y="54" width="58" height="546" rx="10" fill="#fff5b1" opacity="0"/><g id="wind-front" aria-hidden="true" opacity="0"><path d="M-18 115q26-13 36 0m-31 155q20-11 37-3m-36 150q28-12 42 1" stroke="#f9f7d6" stroke-width="3" fill="none" stroke-linecap="round"/></g><path id="playhead-line" d="M64 50v555" stroke="#c1aa64" stroke-width="2" opacity="0"/>';
   body+='<rect id="hover-cell" width="58" height="53" rx="9" fill="#fff5" stroke="#6e926d" stroke-width="2" visibility="hidden"/>';
   if(selection){const[cx,cy]=center(...selection);body+=`<rect x="${cx-29}" y="${cy-26}" width="58" height="53" rx="9" fill="#e4b97833" stroke="#ae8a4c" stroke-width="3"/>`;}
   body+='</g><g data-interface="true" class="hit-layer">';
-  for(let y=0;y<HEIGHT;y++){body+='<g role="row">';for(let x=0;x<WIDTH;x++){const[cx,cy]=center(x,y),cell=cellAt(town,x,y),b=network.buildings.find(item=>item.x===x&&item.y===y);body+=`<rect class="cell-hit" data-x="${x}" data-y="${y}" x="${cx-32}" y="${cy-29}" width="64" height="58" fill="transparent" role="gridcell" aria-label="${x+1}列 ${y+1}行、${cell?TYPES[cell.type]?.name??'泉':'空き地'}${b?`、${noteName(b.note)}、${b.active?'演奏':b.reason==='water'?'水不足':b.reason==='crowded'?'拍がいっぱい':'休止'}`:''}"/>`;}
+  for(let y=0;y<HEIGHT;y++){body+='<g role="row">';for(let x=0;x<WIDTH;x++){const[cx,cy]=center(x,y),cell=cellAt(town,x,y),b=network.buildings.find(item=>item.x===x&&item.y===y);body+=`<rect class="cell-hit" data-x="${x}" data-y="${y}" x="${cx-32}" y="${cy-29}" width="64" height="58" fill="transparent" role="gridcell" aria-label="${x+1}列 ${y+1}行、${cell?TYPES[cell.type]?.name??'泉':'空き地'}${b?`、${noteName(b.note)}、${b.active?'演奏':'休止'}`:''}"/>`;}
     body+='</g>';}
   body+='</g>';svg.innerHTML=body;svg.dataset.tool=tool;
 }
 export function setCursor(svg,position){const rect=svg.querySelector('#hover-cell');if(!rect)return;if(!position){rect.setAttribute('visibility','hidden');return;}const[cx,cy]=center(...position);rect.setAttribute('x',cx-29);rect.setAttribute('y',cy-26);rect.setAttribute('visibility','visible');}
 export function pulseTown(svg,step,notes){
   svg.querySelectorAll('.note-current').forEach(node=>node.classList.remove('note-current'));
-  const[cx]=center(step%16,0);const head=svg.querySelector('#playhead'),line=svg.querySelector('#playhead-line');if(head){head.setAttribute('x',cx-29);head.setAttribute('opacity','.17');line.setAttribute('d',`M${cx} 50v555`);line.setAttribute('opacity','.6');}
-  for(const note of notes){const building=svg.querySelector(`#building-${note.index}`);if(!building)continue;building.classList.remove('sounding');void building.getBoundingClientRect();building.classList.add('sounding','note-current');}
+  for(const group of svg.querySelectorAll('[data-sustain]')){if(step%16>=Number(group.dataset.start)&&step%16<Number(group.dataset.end))group.classList.add('note-current');else group.removeAttribute('data-sustain');}
+  const[cx]=center(step%16,0);const wind=svg.querySelector('#wind-front');if(wind){wind.setAttribute('transform',`translate(${cx} 0)`);wind.setAttribute('opacity','.65');}const head=svg.querySelector('#playhead'),line=svg.querySelector('#playhead-line');if(head){head.setAttribute('x',cx-29);head.setAttribute('opacity','.17');line.setAttribute('d',`M${cx} 50v555`);line.setAttribute('opacity','.6');}
+  for(const note of notes)for(const index of note.members??[note.index]){const building=svg.querySelector(`#building-${index}`);if(!building)continue;building.classList.remove('sounding');void building.getBoundingClientRect();building.classList.add('sounding','note-current');if(note.span>1){building.dataset.sustain='true';building.dataset.start=note.x;building.dataset.end=note.x+note.span;}}
 }

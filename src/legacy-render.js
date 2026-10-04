@@ -1,4 +1,4 @@
-import { WIDTH, HEIGHT, TYPES, cellAt, neighbors, key } from './legacy-core.js?v=0.4.1';
+import { WIDTH, HEIGHT, TYPES, cellAt, neighbors, key } from './legacy-core.js?v=0.5.0';
 export const center = (x, y) => [90 + x * 60, 90 + y * 58];
 const wrap = (body, extra = '') => `<svg viewBox="-40 -52 80 86" fill="none" xmlns="http://www.w3.org/2000/svg" ${extra}>${body}</svg>`;
 const plinth = '<ellipse cx="0" cy="20" rx="29" ry="11" fill="#9cae8f" opacity=".24"/><ellipse cx="0" cy="13" rx="26" ry="12" fill="#f2e8cb"/><path d="M-26 13v5q26 15 52 0v-5q-26 14-52 0" fill="#d5c7a4"/>';

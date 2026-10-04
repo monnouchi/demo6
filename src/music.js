@@ -1,9 +1,12 @@
-import { SCALES } from './core.js?v=0.4.1';
+import { SCALES } from './core.js?v=0.5.0';
 export const BPM=88, STEP_SECONDS=60/BPM/2, BAR_SECONDS=STEP_SECONDS*8;
 export const midiHz=note=>440*2**((note-69)/12);
 export const noteName=note=>['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'][((note%12)+12)%12]+(Math.floor(note/12)-1);
 export function scoreAt(stepIndex,network) {
-  return network.buildings.filter(b=>b.active&&b.x===stepIndex%16).map(b=>({instrument:b.type,note:b.note,length:b.type==='bell'?4:b.type==='mill'?1.3:1.7,gain:.85,index:b.index,x:b.x,y:b.y}));
+  const notes=network.groups.filter(b=>b.active&&b.x===stepIndex%16);
+  // Keep every chosen note; balance dense chords continuously rather than dropping voices.
+  const gain=.85/Math.sqrt(Math.max(1,notes.length/3));
+  return notes.map(b=>({instrument:b.type,note:b.note,length:b.type==='bell'?b.span+3:b.type==='garden'?.4:b.type==='tree'?.35:Math.max(b.type==='mill'?1.3:1.7,b.span),gain,index:b.index,x:b.x,y:b.y,span:b.span,members:b.members}));
 }
 // An original quiet eight-bar accompaniment leaves the melody to the placed town.
 // D6/9 – Bm7 – G6/9 – D6/9, transposed as a whole with the player's scale.
@@ -16,25 +19,39 @@ export function accompanimentAt(stepIndex,scale='d') {
   const index=[1,4,6].indexOf(step);if(index>=0)events.push({instrument:'backing',note:root+motif[index],length:index===2?2:2.5,gain:.23});
   return events;
 }
-export function synthVoice(context,destination,event,time,pan=0,onVoice=null) {
-  const duration=event.length*STEP_SECONDS;
-  const preset={
+// Continuous voicing keeps the selected pitch while softening the upper register.
+// The bell body is tuned; its short, inharmonic crown fades as the pitch rises.
+export function voiceProfile(instrument,note) {
+  const high=Math.max(0,Math.min(1,(note-69)/15)),mix=(low,top)=>low+(top-low)*high;
+  const presets={
+    tree:{volume:.11,attack:.006,release:.10,partials:[[.25,'sine',1],[.58,'sine',.22,.45]]},
     mill:{volume:.16,attack:.008,release:.19,partials:[[1,'sine',1],[2,'triangle',.16],[3,'sine',.035]]},
-    gutter:{volume:.12,attack:.009,release:.36,partials:[[1,'sine',1],[2,'sine',.19],[3,'sine',.045]]},
-    bell:{volume:.13,attack:.003,release:1.3,partials:[[1,'sine',1],[2.76,'sine',.30],[5.4,'sine',.10],[7.13,'sine',.04]]},
+    gutter:{volume:mix(.125,.098),attack:mix(.014,.031),release:mix(.42,.54),partials:[[1,'sine',1],[2,'sine',mix(.16,.065)],[3,'sine',mix(.035,.008)]]},
+    bell:{volume:mix(.13,.105),attack:mix(.009,.024),release:mix(1.15,.92),partials:[[1,'sine',1],[2,'sine',mix(.16,.09)],[2.76,'sine',mix(.22,.065),mix(.55,.30)],[5.4,'sine',mix(.065,.007),.18],[7.13,'sine',mix(.022,.0015),.12]]},
     pad:{volume:.055,attack:.3,release:.4,partials:[[1,'sine',1],[2,'sine',.08]]},
     backing:{volume:.055,attack:.02,release:.25,partials:[[1,'sine',1],[2,'sine',.08]]},
-  }[event.instrument];
+  };
+  return presets[instrument];
+}
+const noiseBuffers=new WeakMap();
+function leafVoice(context,destination,event,time,pan,onVoice){
+  let buffer=noiseBuffers.get(context);if(!buffer){buffer=context.createBuffer(1,Math.ceil(context.sampleRate*.25),context.sampleRate);let seed=9421;const data=buffer.getChannelData(0);for(let i=0;i<data.length;i++){seed=(seed*1664525+1013904223)>>>0;data[i]=seed/2147483648-1;}noiseBuffers.set(context,buffer);}
+  const source=context.createBufferSource(),filter=context.createBiquadFilter(),soft=context.createBiquadFilter(),gain=context.createGain(),panner=context.createStereoPanner();source.buffer=buffer;filter.type='bandpass';filter.frequency.value=1500+Math.max(0,event.note-57)*40;filter.Q.value=.65;soft.type='lowpass';soft.frequency.value=3300;panner.pan.value=pan;
+  gain.gain.setValueAtTime(0,time);gain.gain.linearRampToValueAtTime(.075*event.gain,time+.012);gain.gain.exponentialRampToValueAtTime(.0001,time+.15);gain.gain.linearRampToValueAtTime(0,time+.18);source.connect(filter).connect(soft).connect(gain).connect(panner).connect(destination);source.start(time);source.stop(time+.19);onVoice?.(1);source.onended=()=>{for(const node of [source,filter,soft,gain,panner])node.disconnect();onVoice?.(-1);};
+}
+export function synthVoice(context,destination,event,time,pan=0,onVoice=null) {
+  if(event.instrument==='garden'){leafVoice(context,destination,event,time,pan,onVoice);return;}
+  const duration=event.length*STEP_SECONDS,preset=voiceProfile(event.instrument,event.note);
   const panner=context.createStereoPanner();panner.pan.value=pan;panner.connect(destination);
   let remaining=preset.partials.length;
-  for(const [ratio,wave,amplitude]of preset.partials) {
+  for(const [ratio,wave,amplitude,ring]of preset.partials) {
     const osc=context.createOscillator(),gain=context.createGain(),peak=preset.volume*event.gain*amplitude;
     osc.type=wave;osc.frequency.value=midiHz(event.note)*ratio;
     gain.gain.setValueAtTime(0,time);gain.gain.linearRampToValueAtTime(peak,time+preset.attack);
-    const decay=event.instrument==='bell'&&ratio>1?duration/(ratio*.55):duration;
-    if(event.instrument==='pad'){gain.gain.setValueAtTime(peak,time+Math.max(preset.attack,decay-.2));gain.gain.linearRampToValueAtTime(0,time+decay+preset.release);}
-    else {gain.gain.exponentialRampToValueAtTime(Math.max(.0001,peak*.14),time+Math.max(preset.attack+.01,decay));gain.gain.exponentialRampToValueAtTime(.0001,time+decay+preset.release);gain.gain.linearRampToValueAtTime(0,time+decay+preset.release+.02);}
-    osc.connect(gain).connect(panner);osc.start(time);osc.stop(time+decay+preset.release+.04);onVoice?.(1);
+    const decay=duration*(ring??1),release=ring?preset.release*ring:preset.release;
+    if(event.instrument==='pad'){gain.gain.setValueAtTime(peak,time+Math.max(preset.attack,decay-.2));gain.gain.linearRampToValueAtTime(0,time+decay+release);}
+    else {if(event.span>1&&['mill','gutter'].includes(event.instrument)){gain.gain.setTargetAtTime(peak*.72,time+preset.attack,.08);gain.gain.setValueAtTime(peak*.72,time+Math.max(preset.attack,duration-.06));}gain.gain.exponentialRampToValueAtTime(Math.max(.0001,peak*.14),time+Math.max(preset.attack+.01,decay));gain.gain.exponentialRampToValueAtTime(.0001,time+decay+release);gain.gain.linearRampToValueAtTime(0,time+decay+release+.02);}
+    osc.connect(gain).connect(panner);osc.start(time);osc.stop(time+decay+release+.04);onVoice?.(1);
     osc.onended=()=>{osc.disconnect();gain.disconnect();onVoice?.(-1);if(--remaining===0)panner.disconnect();};
   }
 }
