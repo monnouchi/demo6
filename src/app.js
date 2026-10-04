@@ -128,12 +128,12 @@ function zoomBy(delta) {
   const viewport=$('board-viewport'),ratio=camera.zoom/oldZoom;
   camera.x=viewport.clientWidth/2-(viewport.clientWidth/2-camera.x)*ratio;
   camera.y=viewport.clientHeight/2-(viewport.clientHeight/2-camera.y)*ratio;updateCamera();
-  if(oldZoom===1&&delta>0){const [x,y]=center(...cursor),scale=$('town').clientWidth/900;camera.x=viewport.clientWidth/2-x*scale*camera.zoom;camera.y=viewport.clientHeight/2-y*scale*camera.zoom;updateCamera();}
+  if(oldZoom===1&&delta>0){const point=new DOMPoint(...center(...cursor)).matrixTransform($('town').getScreenCTM()),bounds=viewport.getBoundingClientRect();camera.x+=bounds.width/2-(point.x-bounds.x);camera.y+=bounds.height/2-(point.y-bounds.y);updateCamera();}
 }
 function revealCursor() {
   if(camera.zoom===1)return;
-  const [x,y]=center(...cursor),scale=$('town').clientWidth/900*camera.zoom,viewport=$('board-viewport');
-  const px=x*scale+camera.x,py=y*scale+camera.y;
+  const viewport=$('board-viewport'),bounds=viewport.getBoundingClientRect(),point=new DOMPoint(...center(...cursor)).matrixTransform($('town').getScreenCTM());
+  const px=point.x-bounds.x,py=point.y-bounds.y;
   if(px<30)camera.x+=30-px;else if(px>viewport.clientWidth-30)camera.x-=px-viewport.clientWidth+30;
   if(py<30)camera.y+=30-py;else if(py>viewport.clientHeight-30)camera.y-=py-viewport.clientHeight+30;
   updateCamera();

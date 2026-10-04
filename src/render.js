@@ -27,7 +27,7 @@ export function renderTown(svg, town, network, tool, cursor = null) {
     if (!cellAt(town,x,y) && (x*5+y*9)%11===0) terrain += `<path d="M${cx-9} ${cy+9}v-4m5 5v-6m4 4 2-4" stroke="#a1bc8e" opacity=".45" stroke-width="1.4"/>`;
     if (!cellAt(town,x,y) && growthStage>0 && (x*7+y*13)%17 < growthStage) terrain += `<circle cx="${cx+13}" cy="${cy+13}" r="2" fill="#c49e95"/><circle cx="${cx+17}" cy="${cy+9}" r="2" fill="#d2bb85"/>`;
   }
-  terrain += '</g><text x="76" y="625" font-family="Georgia,serif" font-size="10" fill="#9cac90" letter-spacing="2">YOUR TOWN · NO. 06</text><path d="M771 30q8-7 14 0m15 0q8-7 14 0" stroke="#b1c1a8" stroke-width="1.5" fill="none"/>';
+  terrain += '</g><text x="450" y="625" text-anchor="middle" font-family="Georgia,serif" font-size="10" fill="#9cac90" letter-spacing="2">YOUR TOWN · NO. 06</text><path d="M771 30q8-7 14 0m15 0q8-7 14 0" stroke="#b1c1a8" stroke-width="1.5" fill="none"/>';
   let canals = '';
   town.cells.forEach((cell,i) => {
     if(cell?.type !== 'canal') return;
@@ -51,7 +51,7 @@ export function renderTown(svg, town, network, tool, cursor = null) {
   if(town.completed)celebration = `<g class="festival-bunting"><path d="M126 39Q444 76 771 39" stroke="#aab88b" fill="none"/>${Array.from({length:15},(_,i)=>{const x=144+i*42,y=42+Math.sin((i+1)/16*Math.PI)*16;return `<path d="M${x} ${y}l15 1-6 15z" fill="${['#c69a84','#a9b996','#d0b471','#92b8af'][i%4]}"/>`;}).join('')}</g>`;
   let rain='';
   if(network.raining)rain=`<g pointer-events="none" opacity=".28">${Array.from({length:30},(_,i)=>`<path d="M${50+(i*137)%800} ${10+(i*83)%530}l-3 9" stroke="#91b4ae" stroke-width="1.5" stroke-linecap="round" class="rain-drop" style="animation-delay:-${i*.13}s"/>`).join('')}</g>`;
-  const hits=Array.from({length:WIDTH*HEIGHT},(_,i)=>{const x=i%WIDTH,y=Math.floor(i/WIDTH),[cx,cy]=center(x,y),cell=town.cells[i],active=network.buildings.find(b=>b.x===x&&b.y===y)?.active;const label=`${x+1}列 ${y+1}行：${cell?(TYPES[cell.type]?.name??(cell.type==='spring'?'泉':'森')):'空き地'}${TYPES[cell?.type]?.demand?active?'、水が届いています':'、水が届いていません':''}`;return `<rect id="cell-${i}" data-x="${x}" data-y="${y}" x="${cx-30}" y="${cy-29}" width="60" height="58" fill="transparent" class="cell-hit" role="gridcell" aria-label="${label}"/>`;}).join('');
+  const hits=Array.from({length:WIDTH*HEIGHT},(_,i)=>{const x=i%WIDTH,y=Math.floor(i/WIDTH),[cx,cy]=center(x,y),cell=town.cells[i],active=network.buildings.find(b=>b.x===x&&b.y===y)?.active;const label=`${x+1}列 ${y+1}行：${cell?(TYPES[cell.type]?.name??(cell.type==='spring'?'泉':'森')):'空き地'}${TYPES[cell?.type]?.demand?active?'、水が届いています':'、水が届いていません':''}`;return `${x===0?`<g role="row" aria-rowindex="${y+1}">`:""}<rect id="cell-${i}" aria-colindex="${x+1}" data-x="${x}" data-y="${y}" x="${cx-30}" y="${cy-29}" width="60" height="58" fill="transparent" class="cell-hit" role="gridcell" aria-label="${label}"/>${x===WIDTH-1?"</g>":""}`;}).join('');
   svg.innerHTML=`${defs}${terrain}<g>${canals}</g><g>${buildings}</g>${celebration}${rain}<rect id="hover-cell" class="hover-cell ${tool==='remove'?'selection-removal':''}" rx="9" width="54" height="51" visibility="hidden"/><rect id="keyboard-cell" class="keyboard-cell" rx="9" width="54" height="51" visibility="hidden"/><g>${hits}</g>`;
   svg.dataset.tool=tool;
   if(cursor)setCursor(svg,cursor,true);
