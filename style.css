@@ -14,3 +14,5 @@ body[data-scene=evening]{background:#e9ece6}
 @media(max-width:640px){.build-bar{display:flex;overflow-x:auto;scrollbar-width:thin;position:relative}.tool-button{flex:0 0 48px;min-height:60px}.tool-button b{font-size:9px}}
 
 .sounding .animal-body{animation:animalNod .55s ease-out;transform-origin:0 20px}@keyframes animalNod{30%{transform:rotate(-3deg)}70%{transform:rotate(2deg)}100%{transform:rotate(0)}}
+
+.board-actions{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 8px;background:#f2f4e8;border:1px solid var(--line);border-top:0}.board-actions .camera-controls{position:static;border:0;padding:0;box-shadow:none;background:transparent;gap:4px}.board-actions .camera-controls button{height:34px;min-width:36px}.board-actions .camera-controls button:nth-child(n+3){font-size:10px}.board-actions .undo-button{position:static;margin:0;min-height:34px;padding:7px 12px;font-size:10px}@media(max-width:960px){.town-hud,.construction-panel{position:relative;top:auto;bottom:auto}}

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#31594e">
 <meta name="description" content="自由に水路を引き、楽器の位置で音をつくる小さな街づくり。水車、雨樋、鐘と木・花壇で、あなたの街を。">
-<title>mon | 水辺の街づくり</title><link rel="icon" href="./favicon.svg"><link rel="stylesheet" href="./style.css?v=0.6.0">
+<title>mon | 水辺の街づくり</title><link rel="icon" href="./favicon.svg"><link rel="stylesheet" href="./style.css?v=0.6.1">
 </head>
 <body>
 <header class="topbar"><a class="brand" href="./" aria-label="monの水辺の街"><span class="brand-mark">m<span>·</span></span><span>mon<small>小さな水辺の街</small></span></a><nav class="top-actions" aria-label="街の操作"><button id="photo-button" class="text-button">街の写真</button><button id="sound-button" class="icon-button" aria-label="音をオンにする" aria-pressed="false">♪</button><button id="menu-button" class="icon-button" aria-label="遊び方と保存">☰</button></nav></header>
@@ -11,7 +11,8 @@
 <section class="town-panel" aria-label="街づくり">
 <div class="town-heading"><div><p class="eyebrow">WATER, NOTES & LITTLE STREETS</p><h1>自分の曲と、街をつくる。</h1></div><span id="weather-label" class="weather-chip">☀ おだやかな昼</span></div>
 <div class="town-hud"><div class="lesson-strip"><span id="lesson-copy">雨樋を水路のとなりにひとつ。光る場所から音が鳴ります。</span><span id="lesson-count">自由につくる</span></div><div class="resource-bar"><div class="resource"><small>置いた楽器</small><strong id="wood-value">1 <em>棟</em></strong><span>いくつでも置けます</span></div><div class="resource"><small>鳴っている楽器</small><strong id="water-value">1 <em>棟</em></strong><span id="water-note">水量の上限はありません</span></div><div class="resource"><small>音のある拍</small><strong id="beat-value">1 <em>/ 16</em></strong><span id="beat-note">重ねた音はすべて鳴ります</span></div></div></div>
-<div id="board-viewport" class="board-viewport"><svg id="town" viewBox="0 0 1088 666" xmlns="http://www.w3.org/2000/svg" fill="none" role="grid" aria-label="街。横16拍、縦9段。上ほど高い音。矢印とEnterで建設。" aria-rowcount="9" aria-colcount="16" tabindex="0"></svg><div class="camera-controls" aria-label="画角"><button id="zoom-out" aria-label="街を縮小">−</button><button id="zoom-in" aria-label="街を拡大">＋</button><button id="pan-button" aria-label="街を動かす" aria-pressed="false">動かす</button><button id="camera-reset">全景</button></div><button id="undo-button" class="undo-button" disabled>↶ 戻す</button></div>
+<div id="board-actions" class="board-actions" role="group" aria-label="視点と取り消し"><div class="camera-controls" aria-label="画角"><button id="zoom-out" aria-label="街を縮小">−</button><button id="zoom-in" aria-label="街を拡大">＋</button><button id="pan-button" aria-label="街を動かす" aria-pressed="false">動かす</button><button id="camera-reset">全景</button></div><button id="undo-button" class="undo-button" disabled>↶ 戻す</button></div>
+<div id="board-viewport" class="board-viewport"><svg id="town" viewBox="0 0 1088 666" xmlns="http://www.w3.org/2000/svg" fill="none" role="grid" aria-label="街。横16拍、縦9段。上ほど高い音。矢印とEnterで建設。" aria-rowcount="9" aria-colcount="16" tabindex="0"></svg></div>
 <div id="construction-panel" class="construction-panel"><div id="build-bar" class="build-bar" role="toolbar" aria-label="建設と編集。スマホでは横へスワイプして道具を選べます。"></div><div class="tool-information"><strong id="selected-label">水路</strong><span id="tool-stats">音をつなぐ</span><span id="placement-preview">泉から好きな方向へ。</span></div></div>
 </section>
 <aside class="side-panel">
@@ -28,5 +29,5 @@
 
 <dialog id="photo-dialog" class="photo-dialog"><button class="dialog-close" aria-label="閉じる">×</button><h2>街の写真</h2><label class="setting-row">画角<select id="photo-framing"><option value="buildings">建物に寄る</option><option value="whole">街の全景</option></select></label><img id="photo-preview" alt="水路と楽器と木・花壇の街の写真"><p id="photo-status" class="tiny" role="status">画像を保存して、お好きな場所へ。</p><div class="button-row"><button id="photo-download" class="primary-button">画像を保存</button><button id="photo-share" class="secondary-button">画像を共有</button></div><button id="photo-again" class="quiet-button">今の街でもう一度撮る</button></dialog>
 <dialog id="legacy-dialog" class="legacy-dialog"><button class="dialog-close" aria-label="閉じる">×</button><h2>前の街の風景</h2><p class="tiny">これまで育てた街は、そのまま保管してあります。</p><svg id="legacy-town" viewBox="0 0 900 650" xmlns="http://www.w3.org/2000/svg" fill="none" aria-label="保管した前の街"></svg><div class="button-row"><button id="legacy-export" class="secondary-button">前の街を保存</button><button id="legacy-photo" class="secondary-button">この街の写真</button></div></dialog>
-<script type="module" src="./src/app.js?v=0.6.0"></script>
+<script type="module" src="./src/app.js?v=0.6.1"></script>
 </body></html>
