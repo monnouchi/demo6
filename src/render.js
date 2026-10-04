@@ -1,7 +1,7 @@
-import { WIDTH, HEIGHT, TYPES, cellAt, neighbors, key, noteFor } from './core.js?v=0.5.1';
-import { noteName } from './music.js?v=0.5.1';
-import { buildingArt } from './art.js?v=0.5.1';
-export { icon, welcomeArt } from './art.js?v=0.5.1';
+import { WIDTH, HEIGHT, TYPES, cellAt, neighbors, key, noteFor } from './core.js?v=0.6.0';
+import { noteName } from './music.js?v=0.6.0';
+import { buildingArt } from './art.js?v=0.6.0';
+export { icon, welcomeArt } from './art.js?v=0.6.0';
 export const VIEW_WIDTH=1088,VIEW_HEIGHT=666;
 export const center=(x,y)=>[64+x*64,94+y*58];
 export function renderTown(svg,town,network,tool,selection=null){
@@ -24,7 +24,7 @@ export function renderTown(svg,town,network,tool,selection=null){
     const b=network.buildings.find(item=>item.index===index),active=b?.active??(cell.type==='spring'||cell.type==='garden');
     if(b?.connected){const neighbor=neighbors(x,y).find(([a,c])=>network.wet.has(key(a,c)));if(neighbor){const[px,py]=center(...neighbor);canals+=`<path d="M${cx} ${cy+10}L${(cx+px)/2} ${(cy+py)/2}" stroke="#91bfb0" stroke-width="9" stroke-linecap="round"/>`;}}
     const opacity=b&&!active ? .63 : 1;
-    buildings+=`<g id="building-${index}" data-building="${index}" transform="translate(${cx} ${cy}) scale(.88)" opacity="${opacity}"><ellipse class="note-glow" cx="0" cy="13" rx="37" ry="22" fill="#fff2ad" opacity="0"/><g filter="url(#shade)">${buildingArt(cell.type,cell.type==='garden'||cell.type==='spring',index%4)}</g>`;
+    buildings+=`<g id="building-${index}" data-building="${index}" ${b?.id?`data-animal-id="${b.id}"`:""} transform="translate(${cx} ${cy}) scale(.88)" opacity="${opacity}"><ellipse class="note-glow" cx="0" cy="13" rx="37" ry="22" fill="#fff2ad" opacity="0"/><g filter="url(#shade)">${buildingArt(cell.type,cell.type==='garden'||cell.type==='spring',index%4)}</g>`;
     if(cell.type==='garden')buildings+=`<path d="M-26 28q23 7 49-2" stroke="#efe0b8" stroke-width="5" stroke-linecap="round"/><circle cx="-25" cy="5" r="3" fill="#dbb382"/><circle cx="24" cy="10" r="3" fill="#c1929a"/>`;
     if(b&&!active)buildings+=`<g data-interface="true"><circle cx="24" cy="-20" r="9" fill="${b.reason==='dry'?'#f3ecda':'#e5c28b'}"/><text x="24" y="-16" font-size="12" text-anchor="middle" fill="#896744">${b.reason==='closed'?'Ⅱ':'·'}</text></g>`;
     buildings+='</g>';
