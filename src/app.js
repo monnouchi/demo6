@@ -1,11 +1,12 @@
-import { WIDTH, HEIGHT, TYPES, SCALES, MUSICAL_TYPES, WOOD_BUDGET, createTown, waterNetwork, build, moveBuilding, undoChanges, previewAction, recordPlayback, advance, lineCells, restoreTown, cellAt, noteFor } from './core.js?v=0.4.0';
-import { renderTown, pulseTown, setCursor, center, icon, welcomeArt } from './render.js?v=0.4.0';
-import { TownAudio, scoreAt, STEP_SECONDS, noteName } from './music.js?v=0.4.0';
-import { captureTown, downloadBlob, sharablePhoto, sharePhoto } from './photo.js?v=0.4.0';
-import { restoreTown as restoreLegacy, waterNetwork as legacyNetwork } from './legacy-core.js?v=0.4.0';
-import { renderTown as renderLegacy } from './legacy-render.js?v=0.4.0';
+import { WIDTH, HEIGHT, TYPES, SCALES, MUSICAL_TYPES, WOOD_BUDGET, createTown, waterNetwork, build, moveBuilding, undoChanges, previewAction, recordPlayback, advance, lineCells, restoreTown, cellAt, noteFor } from './core.js?v=0.4.1';
+import { renderTown, pulseTown, setCursor, center, icon, welcomeArt } from './render.js?v=0.4.1';
+import { TownAudio, scoreAt, STEP_SECONDS, noteName } from './music.js?v=0.4.1';
+import { captureTown, photoFrame, downloadBlob, sharablePhoto, sharePhoto } from './photo.js?v=0.4.1';
+import { restoreTown as restoreLegacy, waterNetwork as legacyNetwork } from './legacy-core.js?v=0.4.1';
+import { renderTown as renderLegacy } from './legacy-render.js?v=0.4.1';
+import { reasonCopy, currentCellCopy, previewCopy, movedCellCopy } from './feedback.js?v=0.4.1';
 const $=id=>document.getElementById(id),SAVE_KEY='mon.demo6.composition.v2',LEGACY_KEY='mon.demo6.town.v1';
-let town=createTown(),network,legacy=null,saveProblem='',running=false,tool='gutter',cursor=[4,3],hover=null,moveSource=null;
+let town=createTown(),network,legacy=null,saveProblem='',running=false,tool='gutter',cursor=[4,3],hover=null,moveSource=null,detailPosition=null;
 let history=[],stroke=null,visited=null,lastPointer=null,toastTimer,lastFrame=0,lastSave=0,silentTime=0,silentStep=0,currentStep=-1,legacyRaw=null;
 let photoBlob=null,photoFile=null,photoUrl=null,photoRequest=0,photoSource=null,sharing=false;
 const camera={zoom:1,x:0,y:0,pan:false,drag:null};
@@ -17,18 +18,18 @@ function toast(message,duration=3500){if(!message)return;$('toast').textContent=
 function save(){if(preventAutoSave){$('save-status').textContent='元データを保管してから保存できます';return;}try{localStorage.setItem(SAVE_KEY,JSON.stringify(town));$('save-status').textContent='この端末に自動保存';}catch{$('save-status').textContent='自動保存できません · 設定からファイル保存を';}}
 function edited(){town.listenTicks=town.completed?16:0;if(preventAutoSave){try{localStorage.setItem('mon.demo6.composition.recovery',localStorage.getItem(SAVE_KEY));}catch{return;}}preventAutoSave=false;save();}
 function redraw(){network=waterNetwork(town);audio.setTown(town,network);document.body.dataset.scene=town.scene;renderTown($('town'),town,network,tool,moveSource);if(currentStep>=0)pulseTown($('town'),currentStep,[]);setCursor($('town'),hover);updateUi();}
-function reasonCopy(b){return b?.active?'この拍で鳴ります':b?.reason==='water'?'水が足りず休止。別の楽器の水を止めると鳴らせます':b?.reason==='crowded'?'同じ拍の3音が先に演奏。空いた拍へ移すと鳴らせます':b?.reason==='closed'?'水を止めています':b?.reason==='dry'?'水路が未接続。上下左右につなごう':'';}
-function selectTool(type){if(!TYPES[type])return;tool=type;moveSource=null;hover=null;camera.pan=false;updateCamera();document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tool===tool)));setCursor($('town'),hover);updateSelection();}
+function selectTool(type){if(!TYPES[type])return;tool=type;moveSource=null;hover=null;detailPosition=null;camera.pan=false;updateCamera();document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tool===tool)));setCursor($('town'),hover);updateSelection();}
 function updateSelection(){
   const data=TYPES[tool];$('selected-label').textContent=data.name;$('tool-stats').textContent=data.cost?`木材${data.cost}${data.demand?` · 水${data.demand} / 空き${network.capacity-network.used}`:tool==='garden'?' · 音なし / 水0':''}`:tool==='remove'?'木材を全額返す':tool==='move'?'木材0':'流す音を選ぶ';
   let message=data.description;
   if(moveSource&&!hover)message='移す先の空き地を選ぼう。';
-  if(hover){
+  if(detailPosition&&(!hover||(hover[0]===detailPosition[0]&&hover[1]===detailPosition[1])))message=currentCellCopy(town,network,detailPosition);
+  else if(hover){
     const result=previewAction(town,tool,...hover,moveSource);
-    if(result.ok){const n=result.after,b=result.building;message=tool==='garden'?'花と小道が増えます。音なし・水0。':`${b?`${noteName(b.note)} · 第${Math.floor(hover[0]/8)+1}小節 ${Math.floor(hover[0]%8/2)+1}拍${hover[0]%2?'裏':''} · ${reasonCopy(b)}。 `:''}水${n.used}/${n.capacity}${n.waterBlocked?` · 水待ち${n.waterBlocked}棟`:''}${n.crowded?` · 拍待ち${n.crowded}棟`:''} · 木材${result.wood}`;}
+    if(result.ok)message=previewCopy(result,tool,hover);
     else if(tool==='move'&&moveSource)message=hover[0]===moveSource[0]&&hover[1]===moveSource[1]?'楽器を選びました。移す先の空き地を選ぼう。':result.reason;else if(tool==='move')message=moveSource?'移す先の空き地を選ぼう。':'移す楽器・花園を選ぼう。';else if(result.inspect){const b=network.buildings.find(b=>b.x===hover[0]&&b.y===hover[1]);message=b?`${TYPES[b.type].name} · ${noteName(b.note)} · ${reasonCopy(b)}`:result.inspect==='garden'?'花園 · 音は鳴らない景観です。':data.description;}else if(result.reason)message=result.reason;
   }
-  $('placement-preview').textContent=message;$('placement-preview').classList.toggle('warning',/足り|待ち|先に演奏/.test(message));
+  $('placement-preview').textContent=message;$('placement-preview').classList.toggle('warning',/足り|待ち|先に演奏|未接続/.test(message));
 }
 function check(label,done,value=''){return `<div class="goal-check ${done?'done':''}"><span>${done?'✓':'○'}</span>${label}<em>${value}</em></div>`;}
 function updateUi(){
@@ -58,12 +59,12 @@ function pushChanges(changes){if(!changes.length)return;history.push(changes);if
 function place(x,y,quiet=false){
   if(tool==='move'){
     const cell=cellAt(town,x,y);
-    if(cell&&['mill','gutter','bell','garden'].includes(cell.type)){moveSource=moveSource?.[0]===x&&moveSource?.[1]===y?null:[x,y];redraw();toast(moveSource?'空き地を選んで移動。横＝拍、縦＝高さ。':'移動を取り消しました。',2200);return;}
+    if(cell&&['mill','gutter','bell','garden'].includes(cell.type)){detailPosition=null;moveSource=moveSource?.[0]===x&&moveSource?.[1]===y?null:[x,y];redraw();toast(moveSource?'空き地を選んで移動。横＝拍、縦＝高さ。':'移動を取り消しました。',2200);return;}
     if(!moveSource){if(!quiet)toast('移す楽器・花園を先に選ぼう。');return;}
     const result=moveBuilding(town,moveSource,[x,y]);if(!result.ok){toast(result.reason);return;}
-    pushChanges(result.changes);moveSource=null;redraw();toast('場所を移しました。次に光る拍と音を聴いてみよう。',2800);return;
+    pushChanges(result.changes);moveSource=null;detailPosition=[x,y];redraw();toast(movedCellCopy(town,network,[x,y]),4200);return;
   }
-  const result=build(town,tool,x,y);if(result.ok){stroke?.push(result.change);redraw();}else if(!quiet)toast(result.reason);
+  const result=build(town,tool,x,y);if(result.ok){stroke?.push(result.change);detailPosition=[x,y];redraw();}else if(!quiet){if(result.inspect){detailPosition=[x,y];updateSelection();}toast(result.reason);}
 }
 function finishStroke(){if(stroke?.length)pushChanges(stroke);stroke=null;visited=null;lastPointer=null;camera.drag=null;updateUi();}
 function pointFromEvent(event){const matrix=$('town').getScreenCTM();if(!matrix)return null;const p=new DOMPoint(event.clientX,event.clientY).matrixTransform(matrix.inverse()),x=Math.floor((p.x-32)/64),y=Math.floor((p.y-65)/58);return x>=0&&x<WIDTH&&y>=0&&y<HEIGHT?[x,y]:null;}
@@ -72,7 +73,7 @@ function focusCamera(position=cursor){if(camera.zoom<=1)return;const viewport=$(
 function zoomBy(delta){const before=camera.zoom;camera.zoom=Math.max(1,Math.min(3,camera.zoom+delta));const viewport=$('board-viewport'),ratio=camera.zoom/before;camera.x=viewport.clientWidth/2-(viewport.clientWidth/2-camera.x)*ratio;camera.y=viewport.clientHeight/2-(viewport.clientHeight/2-camera.y)*ratio;updateCamera();if(before===1)focusCamera();}
 function revealCursor(){if(camera.zoom===1)return;const viewport=$('board-viewport'),bounds=viewport.getBoundingClientRect(),p=new DOMPoint(...center(...cursor)).matrixTransform($('town').getScreenCTM()),x=p.x-bounds.x,y=p.y-bounds.y;if(x<30)camera.x+=30-x;else if(x>bounds.width-30)camera.x-=x-bounds.width+30;if(y<30)camera.y+=30-y;else if(y>bounds.height-30)camera.y-=y-bounds.height+30;updateCamera();}
 function fitBoard(){const viewport=$('board-viewport');if(innerWidth>960){viewport.style.removeProperty('height');}else{const top=viewport.getBoundingClientRect().top+scrollY,height=Math.max(165,Math.min(viewport.clientWidth*666/1088,innerHeight-top-$('construction-panel').getBoundingClientRect().height-16));viewport.style.height=`${height}px`;}updateCamera();}
-function undo(){if(!history.length)return;if(undoChanges(town,history.at(-1))){history.pop();moveSource=null;redraw();edited();toast('ひとつ前に戻しました。',1700);}}
+function undo(){if(!history.length)return;if(undoChanges(town,history.at(-1))){history.pop();moveSource=null;detailPosition=null;redraw();edited();toast('ひとつ前に戻しました。',1700);}}
 function onStep(step,notes){if(!running||document.hidden)return;currentStep=step;$('town').dataset.step=step%16;pulseTown($('town'),step,notes);const meter=$('phrase-meter');meter.querySelectorAll('i').forEach((node,index)=>node.classList.toggle('current',index===step%16));const wasHeard=town.heard;const firstPerformance=recordPlayback(town,network,notes);if(wasHeard!==town.heard)updateUi();if(firstPerformance){save();updateUi();if(!document.querySelector('dialog[open]'))$('festival-dialog').showModal();else toast('この街の一曲ができました。写真にも残せます。',6000);}}
 function frame(time){const dt=lastFrame?Math.min((time-lastFrame)/1000,.1):0;lastFrame=time;if(running&&!document.hidden){const rain=network.raining;advance(town,dt);if(rain!==(town.elapsed%60>=44)){redraw();toast(network.raining?'雨が泉に水を4足しています。休んでいた音も聴いてみよう。':'雨が上がりました。水を配り直すのも、街の編曲。',4000);}if(audio.context?.state==='running')audio.flushVisuals();else{silentTime+=dt;while(silentTime>=STEP_SECONDS){silentTime-=STEP_SECONDS;onStep(silentStep,scoreAt(silentStep,network));silentStep=(silentStep+1)%64;}}if(time-lastSave>2000){updateUi();save();lastSave=time;}}requestAnimationFrame(frame);}
 async function enableSound(){try{await audio.start(silentStep);updateUi();}catch(error){audio.setMuted(true);toast(error.message);updateUi();}}
@@ -82,11 +83,11 @@ function exportLegacy(){if(legacyRaw)downloadBlob(new Blob([legacyRaw],{type:'ap
 function showLegacy(){if(!legacy)return;$('menu-dialog').close();renderLegacy($('legacy-town'),legacy,legacyNetwork(legacy),'canal',null);$('legacy-town').querySelectorAll('.cell-hit,#hover-cell,#keyboard-cursor').forEach(node=>node.dataset.interface='true');$('legacy-town').querySelectorAll('text').forEach(node=>node.dataset.interface='true');$('legacy-dialog').showModal();}
 function clearPhoto(){photoRequest++;if(photoUrl)URL.revokeObjectURL(photoUrl);photoUrl=null;photoBlob=null;photoFile=null;$('photo-preview').removeAttribute('src');}
 async function takePhoto(source=$('town')){
-  photoSource=source;const request=++photoRequest;
-  if(!$('photo-dialog').open)$('photo-dialog').showModal();$('photo-status').textContent='街を写真にしています…';$('photo-download').disabled=true;$('photo-share').disabled=true;$('photo-again').disabled=true;$('photo-button').disabled=true;
-  try{const blob=await captureTown(source);if(request!==photoRequest||!$('photo-dialog').open)return;if(photoUrl)URL.revokeObjectURL(photoUrl);photoBlob=blob;photoFile=sharablePhoto(blob);photoUrl=URL.createObjectURL(blob);$('photo-preview').src=photoUrl;let canShare=false;try{canShare=!!navigator.canShare?.({files:[photoFile]})&&!!navigator.share;}catch{}$('photo-share').hidden=!canShare;$('photo-status').textContent=canShare?'画像を保存、または共有先を選べます。':'画像を保存して、お好きな場所へ。';$('photo-download').disabled=false;$('photo-share').disabled=false;}
+  const canFrame=!!source.querySelector('[data-building]');if(! $('photo-dialog').open||source!==photoSource)$('photo-framing').value=canFrame?'buildings':'whole';$('photo-framing').querySelector('[value=buildings]').disabled=!canFrame;photoSource=source;const request=++photoRequest;
+  if(!$('photo-dialog').open)$('photo-dialog').showModal();$('photo-status').textContent='街を写真にしています…';$('photo-download').disabled=true;$('photo-share').disabled=true;$('photo-again').disabled=true;$('photo-button').disabled=true;$('photo-framing').disabled=true;
+  try{const framing=$('photo-framing').value,frame=photoFrame(source,framing);const blob=await captureTown(source,framing);if(request!==photoRequest||!$('photo-dialog').open)return;if(photoUrl)URL.revokeObjectURL(photoUrl);photoBlob=blob;photoFile=sharablePhoto(blob);photoUrl=URL.createObjectURL(blob);$('photo-preview').src=photoUrl;let canShare=false;try{canShare=!!navigator.canShare?.({files:[photoFile]})&&!!navigator.share;}catch{}$('photo-share').hidden=!canShare;$('photo-status').textContent=(framing==='buildings'&&!frame.cropped?'建物が街全体に広がっているため、全景に収めました。 ':'')+(canShare?'画像を保存、または共有先を選べます。':'画像を保存して、お好きな場所へ。');$('photo-download').disabled=false;$('photo-share').disabled=false;}
   catch(error){if(request===photoRequest)$('photo-status').textContent=error.message;}
-  finally{$('photo-again').disabled=false;$('photo-button').disabled=false;}
+  finally{$('photo-again').disabled=false;$('photo-button').disabled=false;$('photo-framing').disabled=false;}
 }
 $('welcome-art').innerHTML=welcomeArt();$('phrase-meter').innerHTML=Array.from({length:16},()=>'<i></i>').join('');
 $('build-bar').innerHTML=Object.entries(TYPES).map(([type,data],index)=>`<button class="tool-button" data-tool="${type}" aria-label="${data.name}${data.cost?`、木材${data.cost}`:''}" aria-pressed="${type===tool}" title="${data.description}"><span class="tool-icon" aria-hidden="true">${type==='move'?'<svg viewBox="0 0 40 40"><path d="M20 3v34M3 20h34m-23-11 6-6 6 6m-12 22 6 6 6-6M9 14l-6 6 6 6m22-12 6 6-6 6" fill="none" stroke="#839783" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>':type==='flow'?'<svg viewBox="0 0 40 40"><path d="M5 26h30M20 5v14m-8-8h16" stroke="#859d88" stroke-width="4" stroke-linecap="round"/><path d="M12 26v8m16-8v8" stroke="#7cb2b1" stroke-width="5" stroke-linecap="round"/></svg>':icon(type)}</span><span><b>${data.name}</b><small>${data.cost?`木材 ${data.cost}`:type==='move'?'置き直す':type==='flow'?'開く / 閉じる':'全額返却'}</small></span></button>`).join('');
@@ -110,9 +111,10 @@ $('backing-button').addEventListener('click',()=>{audio.backing=!audio.backing;u
 $('undo-button').addEventListener('click',undo);$('zoom-in').addEventListener('click',()=>zoomBy(.5));$('zoom-out').addEventListener('click',()=>zoomBy(-.5));$('pan-button').addEventListener('click',()=>{camera.pan=!camera.pan;updateCamera();});$('camera-reset').addEventListener('click',()=>{Object.assign(camera,{zoom:1,x:0,y:0,pan:false});updateCamera();});
 $('menu-button').addEventListener('click',()=>{$('menu-status').hidden=!saveProblem;$('menu-status').textContent=saveProblem;$('menu-dialog').showModal();});$('menu-done').addEventListener('click',()=>$('menu-dialog').close());document.querySelectorAll('.dialog-close').forEach(button=>button.addEventListener('click',()=>button.closest('dialog').close()));
 $('export-button').addEventListener('click',()=>{if(preventAutoSave){const raw=localStorage.getItem(SAVE_KEY);if(raw)downloadBlob(new Blob([raw],{type:'application/json'}),'water-town-unread.json');}else exportTown();});
-$('import-input').addEventListener('change',async event=>{const file=event.target.files?.[0];if(!file)return;try{if(file.size>500000)throw new Error('保存ファイルが大きすぎます。');const raw=await file.text(),data=JSON.parse(raw);if(data.version===1){const restored=restoreLegacy(data);legacyRaw=raw;legacy=restored;updateUi();showLegacy();toast('ファイルの前の街を表示しました。端末の保存はそのままです。');}else{const restored=restoreTown(data);town=restored;history=[];moveSource=null;preventAutoSave=false;saveProblem='';redraw();save();$('menu-dialog').close();toast('保存した街を読み込みました。');}}catch(error){$('menu-status').hidden=false;$('menu-status').textContent=`読み込めませんでした。今の街は残っています。${error.message}`;}finally{event.target.value='';}});
-$('reset-button').addEventListener('click',()=>{$('menu-dialog').close();$('reset-dialog').showModal();});$('reset-export').addEventListener('click',exportTown);$('reset-cancel').addEventListener('click',()=>$('reset-dialog').close());$('reset-confirm').addEventListener('click',()=>{town=createTown();history=[];moveSource=null;preventAutoSave=false;saveProblem='';currentStep=-1;silentTime=0;silentStep=0;redraw();save();$('reset-dialog').close();toast('新しい街をつくりはじめます。');});
+$('import-input').addEventListener('change',async event=>{const file=event.target.files?.[0];if(!file)return;try{if(file.size>500000)throw new Error('保存ファイルが大きすぎます。');const raw=await file.text(),data=JSON.parse(raw);if(data.version===1){const restored=restoreLegacy(data);legacyRaw=raw;legacy=restored;updateUi();showLegacy();toast('ファイルの前の街を表示しました。端末の保存はそのままです。');}else{const restored=restoreTown(data);town=restored;history=[];moveSource=null;detailPosition=null;preventAutoSave=false;saveProblem='';redraw();save();$('menu-dialog').close();toast('保存した街を読み込みました。');}}catch(error){$('menu-status').hidden=false;$('menu-status').textContent=`読み込めませんでした。今の街は残っています。${error.message}`;}finally{event.target.value='';}});
+$('reset-button').addEventListener('click',()=>{$('menu-dialog').close();$('reset-dialog').showModal();});$('reset-export').addEventListener('click',exportTown);$('reset-cancel').addEventListener('click',()=>$('reset-dialog').close());$('reset-confirm').addEventListener('click',()=>{town=createTown();history=[];moveSource=null;detailPosition=null;preventAutoSave=false;saveProblem='';currentStep=-1;silentTime=0;silentStep=0;redraw();save();$('reset-dialog').close();toast('新しい街をつくりはじめます。');});
 $('legacy-button').addEventListener('click',showLegacy);$('legacy-export').addEventListener('click',exportLegacy);$('legacy-photo').addEventListener('click',()=>{$('legacy-dialog').close();takePhoto($('legacy-town'));});
+$('photo-framing').addEventListener('change',()=>takePhoto(photoSource??$('town')));
 $('photo-button').addEventListener('click',()=>takePhoto());$('photo-again').addEventListener('click',()=>takePhoto(photoSource??$('town')));$('photo-download').addEventListener('click',()=>{if(photoBlob){downloadBlob(photoBlob,'water-town.png');$('photo-status').textContent='画像の保存を開始しました。共有先でこの画像を選べます。';}});
 $('photo-share').addEventListener('click',async()=>{if(!photoFile||sharing)return;sharing=true;const request=photoRequest;$('photo-share').disabled=true;const result=await sharePhoto(photoFile);if(request===photoRequest&&$('photo-dialog').open)$('photo-status').textContent=result==='shared'?'画像を共有しました。':result==='cancelled'?'共有をやめました。写真は保存・再共有できます。':result==='unsupported'?'この端末では直接共有できません。画像を保存してください。':'共有できませんでした。画像を保存するか、もう一度お試しください。';sharing=false;$('photo-share').disabled=false;});$('photo-dialog').addEventListener('close',clearPhoto);
 $('continue-button').addEventListener('click',()=>$('festival-dialog').close());$('festival-photo').addEventListener('click',()=>{$('festival-dialog').close();takePhoto();});

@@ -1,4 +1,4 @@
-import { SCALES } from './core.js?v=0.4.0';
+import { SCALES } from './core.js?v=0.4.1';
 export const BPM=88, STEP_SECONDS=60/BPM/2, BAR_SECONDS=STEP_SECONDS*8;
 export const midiHz=note=>440*2**((note-69)/12);
 export const noteName=note=>['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'][((note%12)+12)%12]+(Math.floor(note/12)-1);

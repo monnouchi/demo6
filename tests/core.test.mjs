@@ -36,3 +36,32 @@ test('2000 edits, switches, moves, refunds, undo and saves preserve invariants',
 test('score repeats the placed phrase, keeps authored accompaniment, and has finite pitches',()=>{const t=phrase(),n=waterNetwork(t);for(let i=0;i<64;i++){assert.deepEqual(scoreAt(i,n),scoreAt(i+16,n));for(const e of [...scoreAt(i,n),...accompanimentAt(i,t.scale)])assert.ok(Number.isFinite(midiHz(e.note))&&e.length>0&&e.gain>0);}assert.deepEqual(accompanimentAt(64),accompanimentAt(0));assert.notDeepEqual(accompanimentAt(16),accompanimentAt(0));});
 test('audio visual callbacks follow scheduled audio times and mute does not schedule voices',()=>{const calls=[],audio=new TownAudio((step,notes)=>calls.push([step,notes.length]));audio.context={state:'running',currentTime:0};audio.nextTime=.05;audio.setTown(createTown(),waterNetwork(createTown()));audio.schedule();assert.equal(audio.voices,0);assert.equal(calls.length,0);audio.context.currentTime=.051;audio.flushVisuals();assert.deepEqual(calls,[[0,0]]);});
 test('the lesson waits for a placed instrument to actually play, including silent visual playback',()=>{const t=createTown();put(t,'gutter',4,3);const n=waterNetwork(t);recordPlayback(t,n,[]);assert.equal(t.heard,false);recordPlayback(t,n,scoreAt(2,n));assert.equal(t.heard,false);recordPlayback(t,n,scoreAt(4,n));assert.equal(t.heard,true);});
+
+test('move feedback describes the real target water state and its new pitch',async()=>{
+  const {movedCellCopy,previewCopy,currentCellCopy}=await import('../src/feedback.js');
+  const t=createTown();put(t,'gutter',3,3);
+  const preview=previewCopy(previewAction(t,'move',3,2,[3,3]),'move',[3,2]);
+  assert.match(preview,/^移動先：E5/);assert.match(preview,/未接続で休止/);
+  assert.equal(moveBuilding(t,[3,3],[3,2]).ok,true);const n=waterNetwork(t);
+  assert.match(movedCellCopy(t,n,[3,2]),/水路を伸ばそう/);assert.doesNotMatch(movedCellCopy(t,n,[3,2]),/光る拍/);
+  assert.match(currentCellCopy(t,n,[3,2]),/^現在：雨樋 · E5/);assert.match(currentCellCopy(t,n,[3,2]),/未接続で休止/);
+});
+test('flow details show the new current state, while a second toggle is explicitly a forecast',async()=>{
+  const {currentCellCopy,previewCopy}=await import('../src/feedback.js');const t=bare();
+  for(let x=1;x<=13;x++)put(t,'canal',x,4);for(const x of [0,2,4,6,7,9,13])put(t,'bell',x,3);
+  assert.equal(waterNetwork(t).buildings.find(b=>b.x===13).reason,'water');put(t,'flow',7,3);const n=waterNetwork(t);
+  assert.equal(n.buildings.find(b=>b.x===13).active,true);assert.equal(n.waterBlocked,0);
+  const current=currentCellCopy(t,n,[7,3]);assert.match(current,/^現在：/);assert.match(current,/水を止めています/);assert.doesNotMatch(current,/この拍で鳴ります|水待ち1/);
+  const next=previewCopy(previewAction(t,'flow',7,3),'flow',[7,3]);assert.match(next,/^切替後：/);assert.match(next,/この拍で鳴ります/);assert.match(next,/水待ち1/);
+});
+test('building photo framing keeps every building inside a padded 4:3 view',async()=>{
+  const {frameForBounds}=await import('../src/photo.js'),full={x:0,y:0,width:1088,height:666},bounds=[{x:31,y:218,width:380,height:193}];
+  const f=frameForBounds(full,bounds);assert.equal(f.cropped,true);assert.ok(Math.abs(f.width/f.height-4/3)<1e-10);
+  assert.ok(f.x>=0&&f.y>=0&&f.x+f.width<=1088&&f.y+f.height<=666);
+  for(const b of bounds)assert.ok(f.x<=b.x&&f.y<=b.y&&f.x+f.width>=b.x+b.width&&f.y+f.height>=b.y+b.height);
+});
+test('a spread-out town and a legacy picture safely fall back to their whole view',async()=>{
+  const {frameForBounds}=await import('../src/photo.js'),full={x:0,y:0,width:1088,height:666};
+  assert.deepEqual(frameForBounds(full,[]),{...full,cropped:false});
+  assert.deepEqual(frameForBounds(full,[{x:32,y:50,width:1000,height:540}]),{...full,cropped:false});
+});
