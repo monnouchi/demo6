@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#31594e">
 <meta name="description" content="自由に水路を引き、楽器の位置で音をつくる小さな街づくり。水車、雨樋、鐘と木・花壇で、あなたの街を。">
-<title>mon | 水辺の街づくり</title><link rel="icon" href="./favicon.svg"><link rel="stylesheet" href="./style.css?v=0.6.1">
+<title>mon | 水辺の街づくり</title><link rel="icon" href="./favicon.svg"><link rel="stylesheet" href="./style.css?v=0.6.2">
 </head>
 <body>
 <header class="topbar"><a class="brand" href="./" aria-label="monの水辺の街"><span class="brand-mark">m<span>·</span></span><span>mon<small>小さな水辺の街</small></span></a><nav class="top-actions" aria-label="街の操作"><button id="photo-button" class="text-button">街の写真</button><button id="sound-button" class="icon-button" aria-label="音をオンにする" aria-pressed="false">♪</button><button id="menu-button" class="icon-button" aria-label="遊び方と保存">☰</button></nav></header>
@@ -16,7 +16,7 @@
 <div id="construction-panel" class="construction-panel"><div id="build-bar" class="build-bar" role="toolbar" aria-label="建設と編集。スマホでは横へスワイプして道具を選べます。"></div><div class="tool-information"><strong id="selected-label">水路</strong><span id="tool-stats">音をつなぐ</span><span id="placement-preview">泉から好きな方向へ。</span></div></div>
 </section>
 <aside class="side-panel">
-<section class="music-card"><p class="eyebrow">YOUR TWO-BAR PHRASE</p><h2>場所が、音楽になる。</h2><p class="small">横は鳴るタイミング。上ほど高い音。<br>街を渡る風が、置いた場所の音を鳴らします。</p><label class="setting-row">街全体の調性<select id="scale-select"><option value="d">ニ長調 · D</option><option value="f">ヘ長調 · F</option><option value="a">イ長調 · A</option></select></label><button id="backing-button" class="secondary-button" aria-pressed="true">伴奏あり · 88 BPM</button><p class="tiny">伴奏を消すと、あなたの置いた音だけ。<br>水車は低音、雨樋は滴、鐘は金属の余韻。<br>水車・雨樋・鐘は横につなぐと、長屋の長い音に。</p><div id="phrase-meter" class="phrase-meter" aria-hidden="true"></div><p id="music-status" class="tiny">音は、はじめる時に選べます。</p></section>
+<section class="music-card"><p class="eyebrow">YOUR TWO-BAR PHRASE</p><h2>場所が、音楽になる。</h2><p class="small">横は鳴るタイミング。上ほど高い音。<br>街を渡る風が、置いた場所の音を鳴らします。</p><label class="setting-row">街全体の調性<select id="scale-select"><option value="d">ニ長調 · D</option><option value="f">ヘ長調 · F</option><option value="a">イ長調 · A</option></select></label><button id="backing-button" class="secondary-button" aria-pressed="true">伴奏あり · 88 BPM</button><p class="tiny">伴奏を消すと、あなたの置いた音だけ。<br>水車は低音、雨樋は滴、鐘は金属の余韻。<br>水車・雨樋・鐘は横につなぐと、長屋の長い音に。</p><div id="phrase-meter" class="phrase-meter" aria-hidden="true"></div><p id="music-status" class="tiny" role="status">音は、はじめる時に選べます。</p></section>
 <section class="flow-card"><h2>水の配り方も、編曲。</h2><p id="flow-copy" class="small">水を受ける楽器を選ぼう。</p><p class="tiny">泉につながった水路のとなりで鳴ります。<br>建設費も水量の上限もなく、自由に編曲。</p><button id="flow-shortcut" class="secondary-button">水を流す枝を選ぶ</button><label class="setting-row">街の光<select id="scene-select"><option value="day">昼</option><option value="evening">夜</option></select></label><label class="setting-row">天気<select id="weather-select"><option value="auto">自動で移ろう</option><option value="clear">晴れに固定</option><option value="rain">雨に固定</option></select></label><p class="tiny">雨の植物は滴、夜の花壇は虫の音色。<br>配置とリズムはそのまま。<br>水の届く楽器を、風が順に鳴らします。<br>木と花壇は水路なし。風に揺れて拍を刻む。</p></section>
 <section class="composition-card"><p class="eyebrow">MAKE YOUR OWN SOUND & SCENERY</p><h2>好きな響きを探す。</h2><p class="small">鐘を離して余韻を聴く。雨樋を並べて旋律にする。水車を重ねて低音にする。聴きながら、何度でも置き直せます。</p><p class="tiny">決まった正解やクリアはありません。<br>気に入った景色は「街の写真」で残そう。<br>牛とヤギは風が一周すると一歩。<br>任意に置いて、不意の変化を楽しめます。</p></section>
 </aside>
@@ -29,5 +29,5 @@
 
 <dialog id="photo-dialog" class="photo-dialog"><button class="dialog-close" aria-label="閉じる">×</button><h2>街の写真</h2><label class="setting-row">画角<select id="photo-framing"><option value="buildings">建物に寄る</option><option value="whole">街の全景</option></select></label><img id="photo-preview" alt="水路と楽器と木・花壇の街の写真"><p id="photo-status" class="tiny" role="status">画像を保存して、お好きな場所へ。</p><div class="button-row"><button id="photo-download" class="primary-button">画像を保存</button><button id="photo-share" class="secondary-button">画像を共有</button></div><button id="photo-again" class="quiet-button">今の街でもう一度撮る</button></dialog>
 <dialog id="legacy-dialog" class="legacy-dialog"><button class="dialog-close" aria-label="閉じる">×</button><h2>前の街の風景</h2><p class="tiny">これまで育てた街は、そのまま保管してあります。</p><svg id="legacy-town" viewBox="0 0 900 650" xmlns="http://www.w3.org/2000/svg" fill="none" aria-label="保管した前の街"></svg><div class="button-row"><button id="legacy-export" class="secondary-button">前の街を保存</button><button id="legacy-photo" class="secondary-button">この街の写真</button></div></dialog>
-<script type="module" src="./src/app.js?v=0.6.1"></script>
+<script type="module" src="./src/app.js?v=0.6.2"></script>
 </body></html>

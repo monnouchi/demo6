@@ -1,4 +1,4 @@
-import { SCALES } from './core.js?v=0.6.1';
+import { SCALES } from './core.js?v=0.6.2';
 export const BPM=88, STEP_SECONDS=60/BPM/2, BAR_SECONDS=STEP_SECONDS*8;
 export const midiHz=note=>440*2**((note-69)/12);
 export const noteName=note=>['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'][((note%12)+12)%12]+(Math.floor(note/12)-1);
@@ -68,24 +68,63 @@ export function synthVoice(context,destination,event,time,pan=0,onVoice=null) {
     osc.onended=()=>{osc.disconnect();gain.disconnect();onVoice?.(-1);if(--remaining===0)panner.disconnect();};
   }
 }
-export class TownAudio {
-  constructor(onStep=null){this.context=null;this.master=null;this.timer=null;this.muted=true;this.stepIndex=0;this.voices=0;this.network=null;this.scale='d';this.backing=true;this.onStep=onStep;this.pending=[];this.lastStep=-1;this.heardAnimals=new Set();}
-  setTown(town,network){this.scale=town.scale;this.network=network;this.backing=town.backing??true;}
-  async start(step=0) {
-    if(!this.context||this.context.state==='closed'){
-      const Context=window.AudioContext||window.webkitAudioContext;if(!Context)throw new Error('このブラウザでは音を使えません。光で遊べます。');
-      this.context=new Context();this.master=this.context.createGain();this.master.gain.value=0;
-      const compressor=this.context.createDynamicsCompressor();compressor.threshold.value=-14;compressor.knee.value=18;compressor.ratio.value=3;compressor.attack.value=.004;compressor.release.value=.25;
-      this.bus=this.context.createGain();this.bus.gain.value=1.5;this.bus.connect(compressor).connect(this.master).connect(this.context.destination);
-      for(const [seconds,amount]of [[.19,.09],[.31,.06]]){const delay=this.context.createDelay(1),gain=this.context.createGain(),filter=this.context.createBiquadFilter();delay.delayTime.value=seconds;gain.gain.value=amount;filter.type='lowpass';filter.frequency.value=2100;this.bus.connect(delay).connect(filter).connect(gain).connect(compressor);}
-      this.stepIndex=step%64;
-    }
-    await this.context.resume();this.muted=false;this.master.gain.setTargetAtTime(.85,this.context.currentTime,.025);
-    if(!this.timer){this.nextTime=this.context.currentTime+.05;this.timer=window.setInterval(()=>this.schedule(),25);}
+// Only visible, uninterrupted frame time counts toward a stalled output clock.
+// A background pause or a long main-thread gap must not look like audio failure.
+export class AudioClock {
+  constructor(){this.reset(0);}
+  reset(time){this.time=time;this.still=0;this.status='checking';}
+  tick(dt,time,state,expected=true){
+    if(this.status==='failed')return false;
+    if(!expected||dt<=0||dt>.25){this.reset(time);return false;}
+    if(state!=='running'){this.reset(time);this.status='paused';return false;}
+    if(state==='running'&&time>this.time+.000001){this.time=time;this.still=0;this.status='ready';return true;}
+    this.time=time;this.still+=dt;
+    if(this.still>=1.5)this.status='failed';
+    return state==='running'&&this.status==='ready';
   }
-  setMuted(muted){this.muted=muted;if(this.master)this.master.gain.setTargetAtTime(muted?0:.85,this.context.currentTime,.025);}
+}
+export class TownAudio {
+  constructor(onStep=null){this.context=null;this.master=null;this.timer=null;this.muted=true;this.stepIndex=0;this.voices=0;this.network=null;this.scale='d';this.backing=true;this.onStep=onStep;this.pending=[];this.lastStep=-1;this.heardAnimals=new Set();this.clock=new AudioClock();this.status='idle';this.problem='';this.starting=null;this.paused=false;}
+  get syncing(){return this.status==='ready'&&this.context?.state==='running'&&!this.paused;}
+  setTown(town,network){this.scale=town.scale;this.network=network;this.backing=town.backing??true;}
+  start(step=0){
+    if(this.syncing){this.setMuted(false);return Promise.resolve();}
+    if(this.starting)return this.starting;
+    this.starting=this.activate(step).finally(()=>{this.starting=null;});return this.starting;
+  }
+  async activate(step){
+    try{
+      if(!this.context||this.context.state==='closed'){
+        const Context=window.AudioContext||window.webkitAudioContext;if(!Context)throw new Error('このブラウザでは音を使えません。');
+        this.context=new Context();this.master=this.context.createGain();this.master.gain.value=0;
+        const compressor=this.context.createDynamicsCompressor();compressor.threshold.value=-14;compressor.knee.value=18;compressor.ratio.value=3;compressor.attack.value=.004;compressor.release.value=.25;
+        this.bus=this.context.createGain();this.bus.gain.value=1.5;this.bus.connect(compressor).connect(this.master).connect(this.context.destination);
+        for(const [seconds,amount]of [[.19,.09],[.31,.06]]){const delay=this.context.createDelay(1),gain=this.context.createGain(),filter=this.context.createBiquadFilter();delay.delayTime.value=seconds;gain.gain.value=amount;filter.type='lowpass';filter.frequency.value=2100;this.bus.connect(delay).connect(filter).connect(gain).connect(compressor);}
+      }
+      this.stopScheduling();this.stepIndex=step%64;this.paused=false;this.problem='';this.muted=false;this.status='checking';this.clock.reset(this.context.currentTime);this.master.gain.setValueAtTime(0,this.context.currentTime);
+      await this.context.resume();
+    }catch(error){this.fail(error.message);throw error;}
+  }
+  stopScheduling(){if(this.timer)clearInterval(this.timer);this.timer=null;this.pending=[];}
+  fail(message='音を開始できませんでした。'){
+    this.problem=message;this.status='failed';this.clock.status='failed';this.setMuted(true);this.stopScheduling();
+  }
+  updateClock(dt,step){
+    if(!this.context||this.status==='idle'||this.status==='failed')return false;
+    const before=this.clock.status,ready=this.clock.tick(dt,this.context.currentTime,this.context.state,!this.paused);
+    if(this.clock.status==='failed'){this.fail();return false;}
+    this.status=this.paused||this.clock.status==='paused'?'paused':ready?'ready':'checking';
+    if(ready&&before!=='ready'){
+      this.pending=[];this.stepIndex=step%64;this.nextTime=this.context.currentTime+.05;
+      this.master.gain.setTargetAtTime(this.muted?0:.85,this.context.currentTime,.025);
+      if(!this.timer)this.timer=window.setInterval(()=>this.schedule(),25);
+      this.schedule();
+    }
+    return ready;
+  }
+  setMuted(muted){this.muted=muted;if(this.master)this.master.gain.setTargetAtTime(muted||!this.syncing?0:.85,this.context.currentTime,.025);}
   schedule(){
-    if(!this.context||this.context.state!=='running'||!this.network)return;
+    if(!this.context||this.context.state!=='running'||!this.network||this.paused)return;
     if(this.nextTime<this.context.currentTime-.1)this.nextTime=this.context.currentTime+.04;
     while(this.nextTime<this.context.currentTime+.12){
       const notes=windNotes(this.stepIndex,this.network,this.heardAnimals),events=[...notes,...(this.backing?accompanimentAt(this.stepIndex,this.scale):[])];
@@ -94,7 +133,11 @@ export class TownAudio {
     }
   }
   flushVisuals(){if(!this.context||this.context.state!=='running')return;while(this.pending.length&&this.pending[0].time<=this.context.currentTime){const item=this.pending.shift();this.lastStep=item.step;this.onStep?.(item.step,item.notes);}}
-  async suspend(){if(this.context&&this.context.state==='running')await this.context.suspend();}
-  async resume(){if(this.context?.state==='suspended'){await this.context.resume();this.pending=[];this.nextTime=this.context.currentTime+.05;}}
-  async close(){if(this.timer)clearInterval(this.timer);this.timer=null;this.pending=[];this.muted=true;if(this.context&&this.context.state!=='closed')await this.context.close();}
+  async suspend(){this.paused=true;this.stopScheduling();this.clock.reset(this.context?.currentTime??0);if(this.status!=='idle'&&this.status!=='failed')this.status='paused';if(this.context&&this.context.state==='running')try{await this.context.suspend();}catch{/* Keep the visible clock paused even if the device rejects suspension. */}}
+  async resume(){
+    if(!this.context||this.status==='failed'||this.context.state==='closed')return;
+    this.paused=false;this.stopScheduling();this.clock.reset(this.context.currentTime);this.status='checking';
+    try{if(this.context.state!=='running')await this.context.resume();}catch(error){this.fail(error.message);}
+  }
+  async close(){this.stopScheduling();this.muted=true;this.status='idle';if(this.context&&this.context.state!=='closed')await this.context.close();}
 }
