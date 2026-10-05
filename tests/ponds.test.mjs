@@ -30,7 +30,7 @@ test('a thin entrance joins separate basins without turning into another pond',(
 test('pond shores have ports for water facilities, channels and sources, not independent voices',()=>{
   for(const type of ['mill','gutter','bell','tree','garden','cow','goat'])for(const [x,y]of [[1,2],[4,2],[2,1],[2,4]]){
     const town=townWith(rectangle(2,2,2,2));build(town,type,x,y);
-    assert.equal(pondLayout(town).groups[0].ports.length,['mill','gutter','bell'].includes(type)?1:0);
+    assert.equal(pondLayout(town).groups[0].ports.length,['mill','gutter'].includes(type)?1:0);
   }
   const source=townWith(rectangle(1,3,2,2));assert.equal(pondLayout(source).groups[0].ports.length,1);
 });

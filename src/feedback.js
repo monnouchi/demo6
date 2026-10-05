@@ -1,4 +1,4 @@
-import { TYPES, cellAt, key } from './core.js?v=0.6.6';
+import { TYPES, cellAt, key } from './core.js?v=0.6.7';
 import { noteName } from './music.js?v=0.6.2';
 
 export function reasonCopy(building) {

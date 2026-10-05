@@ -18,8 +18,8 @@ function drawing(town){const svg={innerHTML:'',dataset:{}};renderTown(svg,town,w
 
 test('sources, channels, receivers and independent voices have explicit water capabilities',()=>{
   assert.equal(waterRole('spring'),'source');assert.equal(waterRole('canal'),'channel');
-  for(const type of ['mill','gutter','bell']){assert.equal(receivesWater(type),true);assert.equal(connectsToCanal(type),true);}
-  for(const type of ['tree','garden','cow','goat']){assert.equal(waterRole(type),'independent');assert.equal(connectsToCanal(type),false);}
+  for(const type of ['mill','gutter']){assert.equal(receivesWater(type),true);assert.equal(connectsToCanal(type),true);}
+  for(const type of ['bell','tree','garden','cow','goat']){assert.equal(waterRole(type),'independent');assert.equal(connectsToCanal(type),false);}
   for(const type of [undefined,'remove','unknown','__proto__'])assert.equal(waterRole(type),null);
 });
 test('each facility has the same four-direction water capability in the model and SVG',()=>{

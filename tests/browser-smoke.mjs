@@ -25,6 +25,6 @@ export default async function browserSmoke(page,url='http://127.0.0.1:5176/') {
   if(photo.width!==1600||photo.height!==1200)throw new Error('Cropped photo did not render.');
   await page.locator('#photo-dialog .dialog-close').click();
   const result=await page.evaluate(()=>({version:JSON.parse(localStorage.getItem('mon.demo6.composition.v2')).version,sound:document.querySelector('#sound-button').getAttribute('aria-label'),longhouses:document.querySelectorAll('.longhouse').length,tree:!!document.querySelector('#building-38')}));
-  if(result.version!==3||result.longhouses!==1||!result.tree)throw new Error('Saved composition differs from the displayed edits.');
+  if(result.version!==4||result.longhouses!==1||!result.tree)throw new Error('Saved composition differs from the displayed edits.');
   return {...result,photo};
 }

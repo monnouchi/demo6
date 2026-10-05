@@ -1,22 +1,23 @@
-export const WIDTH = 16, HEIGHT = 9, SAVE_VERSION = 3;
+export const WIDTH = 16, HEIGHT = 9, SAVE_VERSION = 4;
 export const MUSICAL_TYPES = ['mill', 'gutter', 'bell', 'garden', 'tree', 'goat', 'cow'];
 export const TYPES = Object.freeze({
-  canal: { name: '水路', cost: 0, demand: 0, description: '泉からなぞってつなぐ。枝の水は「水の切替」で止められます。' },
+  canal: { name: '水路', cost: 0, demand: 0, description: '泉からなぞってつなぐ。枝の水は「水・音の切替」で止められます。' },
   mill: { name: '水車', cost: 0, demand: 2, role: '木の低音', description: '水を受け、置いた拍で木の低音を鳴らす。上へ移すと高くなります。' },
   gutter: { name: '雨樋', cost: 0, demand: 1, role: '滴の旋律', description: '水を受け、置いた拍で澄んだ滴を鳴らす。横へ移すとタイミングが変わります。' },
-  bell: { name: '鐘', cost: 0, demand: 2, role: '金属の余韻', description: '水を受け、置いた拍で鐘を打つ。空いた拍に置くと長い余韻が聴こえます。' },
+  bell: { name: '鐘', cost: 0, demand: 0, role: '金属の余韻', description: '風で揺れる鐘。水路なしで響き、横につなぐと長い共鳴に。' },
   garden: { name: '花壇', cost: 0, demand: 0, description: '葉のシェイカー。水路なしで置いた拍を刻みます。横並びは連打、上ほど明るい音。' },
   tree: { name: '木', cost: 0, demand: 0, description: '木質のコツ音。水路なしで置いた拍を刻みます。横並びは連打、上ほど軽い音。' },
   move: { name: '移動', cost: 0, description: '泉・楽器・木・花壇を選び、空き地へ移す。泉は水のつながり、楽器は拍と高さが変わる。' },
-  flow: { name: '水の切替', cost: 0, description: '水路なら枝を開閉。楽器なら水を受ける／止める。休符をつくり、響きを聴き比べます。' },
+  flow: { name: '水・音の切替', cost: 0, description: '水路は開閉。楽器・植物・動物は音をON/OFF。休符をつくり、響きを聴き比べます。' },
   remove: { name: '撤去', cost: 0, description: '空き地に戻す。何度でも組み直せます。' },
   goat: { name: 'ヤギ', cost: 0, demand: 0, description: '歩くカウベル。風が一周したら空き地へ一歩。切替で音と歩みを止めます。水路は不要。' },
   cow: { name: '牛', cost: 0, demand: 0, description: '歩く柔らかな低音。風が一周したら空き地へ一歩。切替で音と歩みを止めます。水路は不要。' },
 });
 export const ANIMAL_TYPES=['goat','cow'];
 export const MOVABLE_TYPES=Object.freeze(['spring',...MUSICAL_TYPES]);
+export const LONGHOUSE_TYPES=Object.freeze(['mill','gutter','bell']);
 // Water capability is independent of whether an object makes music or walks.
-export const WATER_ROLES=Object.freeze({spring:'source',canal:'channel',mill:'receiver',gutter:'receiver',bell:'receiver',tree:'independent',garden:'independent',cow:'independent',goat:'independent'});
+export const WATER_ROLES=Object.freeze({spring:'source',canal:'channel',mill:'receiver',gutter:'receiver',bell:'independent',tree:'independent',garden:'independent',cow:'independent',goat:'independent'});
 export const waterRole=type=>Object.hasOwn(WATER_ROLES,type)?WATER_ROLES[type]:null;
 export const receivesWater=type=>waterRole(type)==='receiver';
 export const connectsToCanal=type=>['source','channel','receiver'].includes(waterRole(type));
@@ -50,7 +51,7 @@ export function waterNetwork(town) {
   const groups=[];
   for(const b of buildings){
     if(!b.enabled){b.reason='closed';continue;}
-    const previous=groups.at(-1),joins=receivesWater(b.type)&&previous?.type===b.type&&previous.y===b.y&&previous.x+previous.span===b.x;
+    const previous=groups.at(-1),joins=LONGHOUSE_TYPES.includes(b.type)&&previous?.type===b.type&&previous.y===b.y&&previous.x+previous.span===b.x;
     if(joins){previous.members.push(b.index);previous.span++;previous.connected||=b.connected;}
     else groups.push({index:b.index,x:b.x,y:b.y,type:b.type,id:b.id,note:b.note,span:1,members:[b.index],connected:b.connected});
   }
@@ -120,7 +121,7 @@ export function previewAction(town,tool,x,y,from=null) {
 export function advance(town,seconds) {town.elapsed+=Math.max(0,Math.min(seconds,1));}
 export function lineCells(from,to) {let[x,y]=from;const result=[];while(x!==to[0]){x+=Math.sign(to[0]-x);result.push([x,y]);}while(y!==to[1]){y+=Math.sign(to[1]-y);result.push([x,y]);}return result;}
 export function restoreTown(data) {
-  if(!data||![2,SAVE_VERSION].includes(data.version)||!Array.isArray(data.cells)||data.cells.length!==WIDTH*HEIGHT)throw new Error('街の保存形式が違います。');
+  if(!data||![2,3,SAVE_VERSION].includes(data.version)||!Array.isArray(data.cells)||data.cells.length!==WIDTH*HEIGHT)throw new Error('街の保存形式が違います。');
   const allowed=['spring','canal',...MUSICAL_TYPES],ids=new Set();
   const cells=data.cells.map((cell,index)=>{
     if(cell===null)return null;if(!cell||!allowed.includes(cell.type))throw new Error('街のマスが正しくありません。');
@@ -133,5 +134,15 @@ export function restoreTown(data) {
   if(data.version===2){const costs={canal:1,mill:18,gutter:14,bell:20,garden:6};const spent=cells.reduce((sum,c)=>sum+(costs[c?.type]??0),0);if(!Number.isInteger(data.wood)||data.wood<0||spent+data.wood!==220)throw new Error('以前の木材の記録が正しくありません。');}
   if(!Number.isFinite(data.elapsed)||data.elapsed<0||data.elapsed>1e9||!Object.hasOwn(SCALES,data.scale)||!['day','evening'].includes(data.scene))throw new Error('街の設定が正しくありません。');
   const backing=data.backing??true,weather=data.weather??'auto',wanderSeed=data.wanderSeed??9421,nextAnimalId=data.nextAnimalId??1;if(typeof backing!=='boolean'||!['auto','clear','rain'].includes(weather)||!Number.isInteger(wanderSeed)||wanderSeed<0||wanderSeed>4294967295||!Number.isSafeInteger(nextAnimalId)||nextAnimalId<1||[...ids].some(id=>id>=nextAnimalId))throw new Error('情景や動物の設定が正しくありません。');
-  return {version:SAVE_VERSION,cells,elapsed:data.elapsed,scale:data.scale,scene:data.scene,backing,weather,wanderSeed,nextAnimalId};
+  const restored={version:SAVE_VERSION,cells,elapsed:data.elapsed,scale:data.scale,scene:data.scene,backing,weather,wanderSeed,nextAnimalId};
+  if(data.version<SAVE_VERSION){
+    // Keep the old song's rests: formerly dry bell houses stay OFF until chosen.
+    // A single wet neighbour used to feed the entire enabled bell house.
+    const network=waterNetwork(restored);
+    for(const group of network.groups.filter(g=>g.type==='bell')){
+      const supplied=group.members.some(index=>neighbors(index%WIDTH,Math.floor(index/WIDTH)).some(([x,y])=>network.wet.has(key(x,y))));
+      if(!supplied)for(const index of group.members)cells[index].enabled=false;
+    }
+  }
+  return restored;
 }

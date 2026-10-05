@@ -21,7 +21,7 @@ export default async function animalArtSmoke(page,url='http://127.0.0.1:5176/'){
   });
   for(const width of [393,320]){
     await page.setViewportSize({width,height:659});await page.locator('button[data-tool=cow]').click();
-    const state=await inspect();if(state.animalPipes||state.overflow||state.receivers!==3)throw new Error('Water classification or narrow layout differs. '+JSON.stringify(state));
+    const state=await inspect();if(state.animalPipes||state.overflow||state.receivers!==2)throw new Error('Water classification or narrow layout differs. '+JSON.stringify(state));
     for(const type of ['cow','goat'])if(!await page.locator(`button[data-tool="${type}"] .animal-${type}`).count())throw new Error('Tool icon differs from animal art.');
   }
   await page.locator('button[data-tool=move]').click();

@@ -1,4 +1,4 @@
-import {WIDTH,HEIGHT,cellAt,waterRole,connectsToCanal,neighbors} from './core.js?v=0.6.6';
+import {WIDTH,HEIGHT,cellAt,waterRole,connectsToCanal,neighbors} from './core.js?v=0.6.7';
 
 // A visual layer only: closed canals remain canals, and no saved cells change.
 // A narrow path belongs to a pond only if it participates in a complete 2×2.

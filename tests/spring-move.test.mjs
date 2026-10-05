@@ -34,7 +34,7 @@ test('water and notes come from the moved source, including an instrument on its
 test('moved v3 sources round-trip while original v2/v3 files still load',()=>{
   const original=createTown();assert.deepEqual(restoreTown(original),original);
   const old={...original,version:2,wood:198};assert.deepEqual(restoreTown(old),original);
-  const town=createTown();moveBuilding(town,[0,4],[15,8]);assert.deepEqual(restoreTown(JSON.parse(JSON.stringify(town))),town);
+  const town=createTown();moveBuilding(town,[0,4],[15,8]);assert.deepEqual(restoreTown(JSON.parse(JSON.stringify({...town,version:3}))),town);
   for(const mutate of [t=>{t.cells[64]=null;},t=>{t.cells[0]={type:'spring'};}]){const bad=structuredClone(original);mutate(bad);assert.throws(()=>restoreTown(bad));}
   const oldMoved={...town,version:2,wood:198};assert.throws(()=>restoreTown(oldMoved));
 });

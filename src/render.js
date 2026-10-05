@@ -1,8 +1,8 @@
-import { WIDTH, HEIGHT, TYPES, ANIMAL_TYPES, cellAt, neighbors, key, noteFor, connectsToCanal } from './core.js?v=0.6.6';
+import { WIDTH, HEIGHT, TYPES, ANIMAL_TYPES, cellAt, neighbors, key, noteFor, connectsToCanal } from './core.js?v=0.6.7';
 import { noteName } from './music.js?v=0.6.2';
 import { buildingArt } from './art.js?v=0.6.3';
 export { icon, welcomeArt } from './art.js?v=0.6.3';
-import { pondLayout } from './water-shapes.js?v=0.6.6';
+import { pondLayout } from './water-shapes.js?v=0.6.7';
 export const VIEW_WIDTH=1088,VIEW_HEIGHT=666;
 export const center=(x,y)=>[64+x*64,94+y*58];
 const pondVertex=([x,y])=>[32+x*64,65+y*58];
