@@ -13,4 +13,4 @@ const server = http.createServer(async (request,response)=>{
     const content=await readFile(file);response.writeHead(200,{'Content-Type':mime[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store'});response.end(content);
   } catch {response.writeHead(404);response.end('Not found');}
 });
-server.listen(port,'127.0.0.1',()=>process.stdout.write(`demo6: http://127.0.0.1:${port}\n`));
+server.listen(port,'127.0.0.1',()=>process.stdout.write(`sequencer-town: http://127.0.0.1:${port}\n`));

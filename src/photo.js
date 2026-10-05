@@ -39,7 +39,7 @@ export async function captureTown(svg,framing='whole') {
   } finally {URL.revokeObjectURL(url);}
 }
 export function downloadBlob(blob,name){const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),30000);}
-export function sharablePhoto(blob){return new File([blob],'water-town.png',{type:'image/png'});}
+export function sharablePhoto(blob){return new File([blob],'sequencer-town.png',{type:'image/png'});}
 export async function sharePhoto(file){
   try{if(!navigator.share||!navigator.canShare?.({files:[file]}))return 'unsupported';await navigator.share({files:[file]});return 'shared';}catch(error){if(error.name==='AbortError')return 'cancelled';return 'failed';}
 }
