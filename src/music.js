@@ -61,8 +61,17 @@ export function synthVoice(context,destination,event,time,pan=0,onVoice=null) {
     const osc=context.createOscillator(),gain=context.createGain(),peak=preset.volume*event.gain*amplitude;
     osc.type=wave;osc.frequency.value=midiHz(event.note)*ratio;
     gain.gain.setValueAtTime(0,time);gain.gain.linearRampToValueAtTime(peak,time+preset.attack);
-    const decay=duration*(ring??1),release=ring?preset.release*ring:preset.release;
+    const sustainedMill=event.instrument==='mill'&&event.span>1;
+    const decay=duration*(ring??1),release=sustainedMill?2*STEP_SECONDS:ring?preset.release*ring:preset.release;
     if(event.instrument==='pad'){gain.gain.setValueAtTime(peak,time+Math.max(preset.attack,decay-.2));gain.gain.linearRampToValueAtTime(0,time+decay+release);}
+    else if(sustainedMill){
+      // Hold the player's full note, then let the wooden body ring for one beat.
+      // A relative floor lets quiet harmonics fade with the fundamental.
+      gain.gain.setTargetAtTime(peak*.72,time+preset.attack,.08);
+      gain.gain.setValueAtTime(peak*.72,time+duration);
+      gain.gain.exponentialRampToValueAtTime(peak*.72*.001,time+duration+release);
+      gain.gain.linearRampToValueAtTime(0,time+duration+release+.02);
+    }
     else {if(event.span>1&&['mill','gutter'].includes(event.instrument)){gain.gain.setTargetAtTime(peak*.72,time+preset.attack,.08);gain.gain.setValueAtTime(peak*.72,time+Math.max(preset.attack,duration-.06));}gain.gain.exponentialRampToValueAtTime(Math.max(.0001,peak*.14),time+Math.max(preset.attack+.01,decay));gain.gain.exponentialRampToValueAtTime(.0001,time+decay+release);gain.gain.linearRampToValueAtTime(0,time+decay+release+.02);}
     osc.connect(gain).connect(panner);osc.start(time);osc.stop(time+decay+release+.04);onVoice?.(1);
     osc.onended=()=>{osc.disconnect();gain.disconnect();onVoice?.(-1);if(--remaining===0)panner.disconnect();};
