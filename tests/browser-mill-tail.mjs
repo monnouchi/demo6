@@ -71,7 +71,7 @@ export async function millTailUi(page,url='http://127.0.0.1:5176/'){
   });
   await page.setViewportSize({width:1280,height:900});await page.goto(url);await page.locator('#start-sound').click();
   await page.waitForFunction(()=>document.querySelector('#sound-button').getAttribute('aria-pressed')==='true');
-  await page.locator('#menu-button').click();await page.locator('#reset-button').click();await page.locator('#reset-confirm').click();await page.locator('#backing-button').click();
+  await page.locator('#menu-button').click();await page.locator('#reset-button').click();await page.locator('#reset-confirm').click();await page.locator('#menu-button').click();await page.locator('#backing-button').click();await page.locator('#menu-done').click();
   const span=()=>page.evaluate(async()=>{const {waterNetwork}=await import('./src/core.js?v=0.6.3');return waterNetwork(JSON.parse(localStorage.getItem('mon.demo6.composition.v2'))).groups.find(g=>g.type==='mill'&&g.y===3)?.span;});
   const spans=[];await page.locator('button[data-tool=mill]').click();
   for(let x=0;x<16;x++){await page.locator(`.cell-hit[data-x="${x}"][data-y="3"]`).click();if([1,3,15].includes(x)){const n=await span();if(n!==x+1)throw Error('Pointer longhouse span differs.');spans.push(n);}}

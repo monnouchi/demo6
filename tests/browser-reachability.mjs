@@ -10,7 +10,7 @@ export default async function boardReachability(page,url='http://127.0.0.1:5176/
   const cdp=await page.context().newCDPSession(page);
   await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true});
   const results=[];
-  for(const [width,height]of [[393,659],[320,568],[393,480],[320,400]]){
+  for(const [width,height]of [[1280,900],[393,659],[320,568],[393,480],[320,400],[844,390]]){
     await page.setViewportSize({width,height});
     await page.evaluate(()=>scrollTo(0,0));
     const initial=await page.evaluate(()=>[...document.querySelectorAll('.cell-hit')].map(n=>{const b=n.getBoundingClientRect(),x=b.x+b.width/2,y=b.y+b.height/2;return {x:Number(n.dataset.x),y:Number(n.dataset.y),offscreen:y<0||y>=innerHeight,target:document.elementFromPoint(x,y)?.id??document.elementFromPoint(x,y)?.tagName,blocked:document.elementFromPoint(x,y)!==n};}).filter(c=>c.blocked));

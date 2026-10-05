@@ -2,12 +2,14 @@
 export default async function natureSmoke(page) {
   await page.locator('button[data-tool=garden]').click();
   await page.locator('.cell-hit[data-x="8"][data-y="2"]').click();
+  await page.locator('#menu-button').click();
   await page.locator('#backing-button').click();
   await page.locator('#weather-select').selectOption('rain');
   if(!await page.locator('.rain-layer').count())throw new Error('Fixed rain is not visible.');
   await page.locator('#weather-select').selectOption('clear');
   await page.locator('#scene-select').selectOption('evening');
   if(await page.locator('body').getAttribute('data-scene')!=='evening')throw new Error('Night scenery did not change.');
+  await page.locator('#menu-done').click();
   await page.locator('button[data-tool=cow]').click();
   await page.locator('.cell-hit[data-x="10"][data-y="5"]').click();
   await page.locator('button[data-tool=goat]').click();

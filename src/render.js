@@ -1,7 +1,7 @@
 import { WIDTH, HEIGHT, TYPES, ANIMAL_TYPES, animalFacing, cellAt, neighbors, key, noteFor, connectsToCanal } from './core.js?v=0.6.8';
 import { noteName } from './music.js?v=0.6.2';
-import { buildingArt } from './art.js?v=0.6.8';
-export { icon, welcomeArt } from './art.js?v=0.6.8';
+import { buildingArt } from './art.js?v=0.6.9';
+export { icon, welcomeArt } from './art.js?v=0.6.9';
 import { pondLayout } from './water-shapes.js?v=0.6.8';
 export const VIEW_WIDTH=1088,VIEW_HEIGHT=666;
 export const center=(x,y)=>[64+x*64,94+y*58];

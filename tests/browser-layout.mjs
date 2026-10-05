@@ -1,0 +1,49 @@
+// Verify the quieter play surface and the controls moved into the optional menu.
+export default async function layoutSmoke(page,url='http://127.0.0.1:5176/'){
+  await page.setViewportSize({width:1280,height:900});await page.goto(url);
+  await page.screenshot({path:'output/playwright/layout-welcome.png'});
+  await page.locator('#start-silent').click();
+  if(await page.locator('.town-heading,.town-hud,.side-panel,footer').count())throw Error('Repeated lesson or explanation panels remain.');
+  if(await page.locator('#toast').getAttribute('class').then(c=>c.includes('visible')))throw Error('Start repeats its lesson as a toast.');
+  const views=[];
+  for(const [width,height]of [[1280,900],[320,400],[320,568],[390,844],[844,390]]){
+    await page.setViewportSize({width,height});await page.evaluate(()=>scrollTo(0,0));await page.locator('button[data-tool=gutter]').click();await page.locator('#camera-reset').click();await page.waitForTimeout(80);
+    const layout=await page.evaluate(()=>{const b=document.querySelector('#board-viewport').getBoundingClientRect(),tools=document.querySelector('#construction-panel').getBoundingClientRect();return {width:innerWidth,height:innerHeight,board:{x:b.x,y:b.y,width:b.width,height:b.height},controlsBottom:tools.bottom,overflow:document.documentElement.scrollWidth>innerWidth,visibleStats:!!document.querySelector('#wood-value').getClientRects().length};});
+    if(layout.overflow||layout.visibleStats||layout.board.y>125||layout.board.height<165||layout.controlsBottom>height+1)throw Error('Play layout does not prioritize the board: '+JSON.stringify(layout));
+    await page.screenshot({path:`output/playwright/layout-${width}-${height}.png`});views.push(layout);
+    await page.locator('#tool-details summary').click();if(!await page.locator('#tool-description').isVisible())throw Error('Tool help cannot be opened.');await page.locator('#tool-details summary').click();
+    await page.locator('#menu-button').click();if(!await page.locator('#scale-select').isVisible())throw Error('Settings are not reachable.');await page.locator('#menu-dialog .dialog-close').click();if(await page.locator('#menu-dialog').getAttribute('open')!==null)throw Error('Menu cannot close.');
+  }
+  await page.setViewportSize({width:320,height:400});await page.locator('#menu-button').click();
+  await page.locator('#weather-select').selectOption('rain');await page.locator('#scene-select').selectOption('evening');await page.locator('#scale-select').selectOption('f');await page.locator('#backing-button').click();
+  const stats=page.locator('.menu-details').filter({has:page.locator('#wood-value')});await stats.locator('summary').click();if(!await page.locator('#wood-value').isVisible())throw Error('Optional stats cannot open.');
+  await page.locator('.menu-details').filter({has:page.locator('.help-list')}).locator('summary').click();
+  await page.locator('.help-list li').last().scrollIntoViewIfNeeded();await page.screenshot({path:'output/playwright/layout-menu-help-320.png'});await page.locator('#menu-done').click();
+  if(!await page.locator('.rain-layer').count()||await page.locator('body').getAttribute('data-scene')!=='evening')throw Error('Weather or scene setting stopped working.');
+  await page.locator('#menu-button').click();for(let i=0;i<14;i++){await page.keyboard.press('Tab');if(!await page.evaluate(()=>document.querySelector('#menu-dialog').contains(document.activeElement)||document.activeElement===document.body))throw Error('Keyboard focus escaped the open menu.');}await page.keyboard.press('Escape');if(await page.locator('#menu-dialog').getAttribute('open')!==null)throw Error('Escape cannot close the menu.');
+  const settings=await page.evaluate(()=>{const t=JSON.parse(localStorage.getItem('mon.demo6.composition.v2'));return {scale:t.scale,scene:t.scene,weather:t.weather,backing:t.backing};});
+  await page.reload();await page.locator('#start-silent').click();await page.locator('#menu-button').click();
+  if(await page.locator('#scale-select').inputValue()!=='f'||await page.locator('#weather-select').inputValue()!=='rain'||await page.locator('#scene-select').inputValue()!=='evening'||await page.locator('#backing-button').getAttribute('aria-pressed')!=='false')throw Error('Settings did not survive reload.');
+  await page.locator('#reset-button').click();await page.locator('#reset-confirm').click();await page.locator('#camera-reset').click();
+  await page.locator('button[data-tool=garden]').click();await page.locator('#town').focus();await page.keyboard.press('ArrowRight');await page.keyboard.press('ArrowUp');await page.keyboard.press('Enter');
+  const built=await page.evaluate(()=>JSON.parse(localStorage.getItem('mon.demo6.composition.v2')).cells[2*16+5]);if(built?.type!=='garden')throw Error('Keyboard placement failed.');
+  await page.keyboard.press('Meta+z');if(await page.evaluate(()=>!!JSON.parse(localStorage.getItem('mon.demo6.composition.v2')).cells[2*16+5]))throw Error('Keyboard Undo failed.');
+  await page.setViewportSize({width:390,height:844});await page.locator('button[data-tool=canal]').click();await page.locator('#camera-reset').click();
+  const cdp=await page.context().newCDPSession(page),points=[];for(let x=3;x<=8;x++){const box=await page.locator(`.cell-hit[data-x="${x}"][data-y="6"]`).boundingBox();points.push({x:box.x+box.width/2,y:box.y+box.height/2,id:1});}
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[points[0]]});for(const point of points.slice(1))await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[point]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  const row=await page.evaluate(()=>JSON.parse(localStorage.getItem('mon.demo6.composition.v2')).cells.flatMap((cell,index)=>cell?.type==='canal'&&index>=80?[index]:[]));if(JSON.stringify(row)!==JSON.stringify([99,100,101,102,103,104]))throw Error('Showing contextual feedback changed a touch stroke: '+JSON.stringify(row));await cdp.detach();await page.locator('#undo-button').click();await page.setViewportSize({width:320,height:400});
+  await page.locator('#zoom-in').click();await page.locator('#pan-button').click();const before=await page.locator('#town').evaluate(n=>n.style.transform);const b=await page.locator('#board-viewport').boundingBox();await page.mouse.move(b.x+b.width*.75,b.y+b.height*.7);await page.mouse.down();await page.mouse.move(b.x+b.width*.5,b.y+b.height*.4,{steps:5});await page.mouse.up();const after=await page.locator('#town').evaluate(n=>n.style.transform);if(before===after)throw Error('Camera pan failed.');await page.locator('#zoom-in').click();await page.locator('#zoom-in').click();
+  const resized=[];for(const [width,height]of [[390,844],[320,568],[844,390],[320,400]]){await page.setViewportSize({width,height});await page.waitForTimeout(80);const frame=await page.evaluate(()=>{const v=document.querySelector('#board-viewport').getBoundingClientRect(),matrix=document.querySelector('#town').getScreenCTM(),a=new DOMPoint(0,0).matrixTransform(matrix),b=new DOMPoint(1088,666).matrixTransform(matrix);return {width:innerWidth,height:innerHeight,viewport:{left:v.left,right:v.right,top:v.top,bottom:v.bottom},content:{left:a.x,right:b.x,top:a.y,bottom:b.y}};});const v=frame.viewport,c=frame.content;if(c.right-c.left>=v.right-v.left&&(c.left>v.left+.5||c.right<v.right-.5)||c.bottom-c.top>=v.bottom-v.top&&(c.top>v.top+.5||c.bottom<v.bottom-.5))throw Error('Resizing the zoomed town leaves avoidable blank space: '+JSON.stringify(frame));resized.push(frame);}await page.locator('#camera-reset').click();
+  await page.locator('#photo-button').click();await page.waitForFunction(()=>!document.querySelector('#photo-download').disabled);const photo=await page.locator('#photo-preview').evaluate(n=>({width:n.naturalWidth,height:n.naturalHeight}));if(photo.width!==1600||photo.height!==1200)throw Error('Photograph failed.');await page.locator('#photo-dialog .dialog-close').click();
+  return {views,settings,reloaded:true,menuScroll:true,menuKeyboard:true,keyboardUndo:true,cameraPan:true,touchStroke:true,resized,photo};
+}
+
+// A hidden routine save label must not hide a real write failure from play.
+export async function layoutSaveFailure(page,url='http://127.0.0.1:5176/'){
+  await page.addInitScript(()=>{window.__saveFault=true;const native=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(window.__saveFault&&key==='mon.demo6.composition.v2')throw new DOMException('Quota exceeded','QuotaExceededError');return native.call(this,key,value);};});
+  await page.goto(url);await page.locator('#start-silent').click();await page.waitForFunction(()=>!document.querySelector('#play-status').hidden&&document.querySelector('#play-status').textContent.includes('自動保存できません'));
+  await page.locator('#camera-reset').click();await page.locator('button[data-tool=tree]').click();await page.locator('.cell-hit[data-x="6"][data-y="2"]').click();
+  await page.locator('#menu-button').click();const downloadPromise=page.waitForEvent('download');await page.locator('#export-button').click();const download=await downloadPromise,stream=await download.createReadStream(),parts=[];for await(const part of stream)parts.push(part);const exported=JSON.parse(Buffer.concat(parts).toString());if(exported.cells[38]?.type!=='tree')throw Error('Unsaved edits were not available through file export.');await page.locator('#menu-done').click();
+  await page.evaluate(()=>window.__saveFault=false);await page.waitForFunction(()=>document.querySelector('#play-status').hidden);if(await page.evaluate(()=>JSON.parse(localStorage.getItem('mon.demo6.composition.v2')).cells[38]?.type)!=='tree')throw Error('Save did not recover after storage became available.');
+  return {warningVisible:true,unsavedExport:true,recovery:true};
+}
