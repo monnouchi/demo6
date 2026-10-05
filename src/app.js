@@ -1,7 +1,7 @@
 import { WIDTH, HEIGHT, TYPES, SCALES, MUSICAL_TYPES, createTown, waterNetwork, build, moveBuilding, undoChanges, previewAction, advance, isRaining, wanderAnimals, lineCells, restoreTown, cellAt } from './core.js?v=0.6.3';
-import { renderTown, pulseTown, setCursor, center, icon, welcomeArt } from './render.js?v=0.6.3';
+import { renderTown, pulseTown, setCursor, center, icon, welcomeArt } from './render.js?v=0.6.4';
 import { TownAudio, windNotes, STEP_SECONDS } from './music.js?v=0.6.2';
-import { captureTown, photoFrame, downloadBlob, sharablePhoto, sharePhoto } from './photo.js?v=0.6.2';
+import { captureTown, photoFrame, downloadBlob, sharablePhoto, sharePhoto } from './photo.js?v=0.6.4';
 import { restoreTown as restoreLegacy, waterNetwork as legacyNetwork } from './legacy-core.js?v=0.6.2';
 import { renderTown as renderLegacy } from './legacy-render.js?v=0.6.2';
 import { reasonCopy, toneCopy, currentCellCopy, previewCopy, movedCellCopy } from './feedback.js?v=0.6.2';
@@ -75,9 +75,9 @@ function exportLegacy(){if(legacyRaw)downloadBlob(new Blob([legacyRaw],{type:'ap
 function showLegacy(){if(!legacy)return;$('menu-dialog').close();renderLegacy($('legacy-town'),legacy,legacyNetwork(legacy),'canal',null);$('legacy-town').querySelectorAll('.cell-hit,#hover-cell,#keyboard-cursor').forEach(node=>node.dataset.interface='true');$('legacy-town').querySelectorAll('text').forEach(node=>node.dataset.interface='true');$('legacy-dialog').showModal();}
 function clearPhoto(){photoRequest++;if(photoUrl)URL.revokeObjectURL(photoUrl);photoUrl=null;photoBlob=null;photoFile=null;$('photo-preview').removeAttribute('src');}
 async function takePhoto(source=$('town')){
-  const canFrame=!!source.querySelector('[data-building]');if(! $('photo-dialog').open||source!==photoSource)$('photo-framing').value=canFrame?'buildings':'whole';$('photo-framing').querySelector('[value=buildings]').disabled=!canFrame;photoSource=source;const request=++photoRequest;
+  const canFrame=!!source.querySelector('[data-building],[data-landscape]');if(! $('photo-dialog').open||source!==photoSource)$('photo-framing').value=canFrame?'buildings':'whole';$('photo-framing').querySelector('[value=buildings]').disabled=!canFrame;photoSource=source;const request=++photoRequest;
   if(!$('photo-dialog').open)$('photo-dialog').showModal();$('photo-status').textContent='街を写真にしています…';$('photo-download').disabled=true;$('photo-share').disabled=true;$('photo-again').disabled=true;$('photo-button').disabled=true;$('photo-framing').disabled=true;
-  try{const framing=$('photo-framing').value,frame=photoFrame(source,framing);const blob=await captureTown(source,framing);if(request!==photoRequest||!$('photo-dialog').open)return;if(photoUrl)URL.revokeObjectURL(photoUrl);photoBlob=blob;photoFile=sharablePhoto(blob);photoUrl=URL.createObjectURL(blob);$('photo-preview').src=photoUrl;let canShare=false;try{canShare=!!navigator.canShare?.({files:[photoFile]})&&!!navigator.share;}catch{}$('photo-share').hidden=!canShare;$('photo-status').textContent=(framing==='buildings'&&!frame.cropped?'建物が街全体に広がっているため、全景に収めました。 ':'')+(canShare?'画像を保存、または共有先を選べます。':'画像を保存して、お好きな場所へ。');$('photo-download').disabled=false;$('photo-share').disabled=false;}
+  try{const framing=$('photo-framing').value,frame=photoFrame(source,framing);const blob=await captureTown(source,framing);if(request!==photoRequest||!$('photo-dialog').open)return;if(photoUrl)URL.revokeObjectURL(photoUrl);photoBlob=blob;photoFile=sharablePhoto(blob);photoUrl=URL.createObjectURL(blob);$('photo-preview').src=photoUrl;let canShare=false;try{canShare=!!navigator.canShare?.({files:[photoFile]})&&!!navigator.share;}catch{}$('photo-share').hidden=!canShare;$('photo-status').textContent=(framing==='buildings'&&!frame.cropped?'街が広がっているため、全景に収めました。 ':'')+(canShare?'画像を保存、または共有先を選べます。':'画像を保存して、お好きな場所へ。');$('photo-download').disabled=false;$('photo-share').disabled=false;}
   catch(error){if(request===photoRequest)$('photo-status').textContent=error.message;}
   finally{$('photo-again').disabled=false;$('photo-button').disabled=false;$('photo-framing').disabled=false;}
 }

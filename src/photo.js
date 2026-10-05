@@ -14,7 +14,7 @@ export function photoFrame(svg,framing='whole') {
   if(framing!=='buildings')return {...full,cropped:false};
   const matrix=svg.getScreenCTM();if(!matrix)return {...full,cropped:false};
   const inverse=matrix.inverse(),bounds=[];
-  for(const element of svg.querySelectorAll('[data-building]')){
+  for(const element of svg.querySelectorAll('[data-building],[data-landscape]')){
     const local=element.getBBox(),screen=element.getScreenCTM();if(!screen)continue;
     const points=[[local.x,local.y],[local.x+local.width,local.y],[local.x,local.y+local.height],[local.x+local.width,local.y+local.height]].map(([x,y])=>new DOMPoint(x,y).matrixTransform(screen).matrixTransform(inverse));
     const xs=points.map(p=>p.x),ys=points.map(p=>p.y),x=Math.min(...xs),y=Math.min(...ys);
