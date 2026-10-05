@@ -1,6 +1,6 @@
 {
   "name": "sequencer-town",
-  "version": "0.6.14",
+  "version": "0.6.15",
   "private": true,
   "type": "module",
   "description": "A small water-powered musical town by mon.",
