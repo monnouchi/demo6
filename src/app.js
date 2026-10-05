@@ -1,10 +1,10 @@
-import { WIDTH, HEIGHT, SAVE_VERSION, TYPES, SCALES, MOVABLE_TYPES, createTown, waterNetwork, build, moveBuilding, undoChanges, previewAction, advance, isRaining, wanderAnimals, lineCells, restoreTown, cellAt } from './core.js?v=0.6.7';
-import { renderTown, pulseTown, setCursor, center, icon, welcomeArt } from './render.js?v=0.6.7';
+import { WIDTH, HEIGHT, SAVE_VERSION, TYPES, SCALES, MOVABLE_TYPES, createTown, waterNetwork, build, moveBuilding, undoChanges, previewAction, advance, isRaining, wanderAnimals, lineCells, restoreTown, cellAt } from './core.js?v=0.6.8';
+import { renderTown, pulseTown, setCursor, center, icon, welcomeArt } from './render.js?v=0.6.8';
 import { TownAudio, windNotes, STEP_SECONDS } from './music.js?v=0.6.5';
 import { captureTown, photoFrame, downloadBlob, sharablePhoto, sharePhoto } from './photo.js?v=0.6.4';
 import { restoreTown as restoreLegacy, waterNetwork as legacyNetwork } from './legacy-core.js?v=0.6.2';
 import { renderTown as renderLegacy } from './legacy-render.js?v=0.6.2';
-import { reasonCopy, toneCopy, currentCellCopy, previewCopy, movedCellCopy } from './feedback.js?v=0.6.7';
+import { reasonCopy, toneCopy, currentCellCopy, previewCopy, movedCellCopy } from './feedback.js?v=0.6.8';
 const $=id=>document.getElementById(id),SAVE_KEY='mon.demo6.composition.v2',LEGACY_KEY='mon.demo6.town.v1';
 let town=createTown(),network,legacy=null,saveProblem='',migrationNotice='',running=false,tool='gutter',cursor=[4,3],hover=null,moveSource=null,detailPosition=null;
 let history=[],stroke=null,visited=null,lastPointer=null,toastTimer,lastFrame=0,lastSave=0,silentTime=0,silentStep=0,currentStep=-1,legacyRaw=null;

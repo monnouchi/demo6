@@ -14,6 +14,9 @@ export const TYPES = Object.freeze({
   cow: { name: '牛', cost: 0, demand: 0, description: '歩く柔らかな低音。風が一周したら空き地へ一歩。切替で音と歩みを止めます。水路は不要。' },
 });
 export const ANIMAL_TYPES=['goat','cow'];
+export const ANIMAL_DIRECTIONS=Object.freeze(['east','west','north','south']);
+export const animalFacing=cell=>ANIMAL_DIRECTIONS.includes(cell?.facing)?cell.facing:'east';
+function facingForMove(from,to){const dx=to%WIDTH-from%WIDTH,dy=Math.floor(to/WIDTH)-Math.floor(from/WIDTH);return Math.abs(dx)>=Math.abs(dy)?dx<0?'west':'east':dy<0?'north':'south';}
 export const MOVABLE_TYPES=Object.freeze(['spring',...MUSICAL_TYPES]);
 export const LONGHOUSE_TYPES=Object.freeze(['mill','gutter','bell']);
 // Water capability is independent of whether an object makes music or walks.
@@ -75,7 +78,7 @@ export function build(town,tool,x,y) {
   }
   if(tool==='move')return {ok:false,reason:'泉・楽器・木・花壇を選んでから、空き地を選ぼう。'};
   if(previous)return {ok:false,reason:'ここには建物があります。「移動」で置き直せます。',inspect:previous.type};
-  const next={type:tool};if(ANIMAL_TYPES.includes(tool))next.id=town.nextAnimalId++;if(tool==='canal')next.open=true;else if(MUSICAL_TYPES.includes(tool))next.enabled=true;
+  const next={type:tool};if(ANIMAL_TYPES.includes(tool)){next.id=town.nextAnimalId++;next.facing='east';}if(tool==='canal')next.open=true;else if(MUSICAL_TYPES.includes(tool))next.enabled=true;
   town.cells[index]=next;
   return {ok:true,change:{index,previous:null,next,delta:-TYPES[tool].cost}};
 }
@@ -84,8 +87,9 @@ export function moveBuilding(town,from,to) {
   const index=from[1]*WIDTH+from[0],target=to[1]*WIDTH+to[0],cell=town.cells[index];
   if(!cell||!MOVABLE_TYPES.includes(cell.type))return {ok:false,reason:'泉・楽器・木・花壇を選んでください。'};
   if(town.cells[target])return {ok:false,reason:'移動先は空き地を選んでください。'};
-  town.cells[index]=null;town.cells[target]={...cell};
-  return {ok:true,changes:[{index,previous:{...cell},next:null,delta:0},{index:target,previous:null,next:{...cell},delta:0}]};
+  const next={...cell};if(ANIMAL_TYPES.includes(cell.type))next.facing=facingForMove(index,target);
+  town.cells[index]=null;town.cells[target]=next;
+  return {ok:true,changes:[{index,previous:{...cell},next:null,delta:0},{index:target,previous:null,next:{...next},delta:0}]};
 }
 function emptyNear(town,index,excluding=-1) {
   const queue=[index],visited=new Set();
@@ -101,7 +105,7 @@ export function undoChanges(town,changes) {
     if(!change.previous){if(!animalNext)town.cells[target]=null;continue;}
     if(!(animalPrevious&&animalNext))target=change.index;
     const occupant=town.cells[target];
-    if(ANIMAL_TYPES.includes(occupant?.type)){const free=emptyNear(town,target,target);if(free<0)return false;town.cells[free]=occupant;}
+    if(ANIMAL_TYPES.includes(occupant?.type)){const free=emptyNear(town,target,target);if(free<0)return false;town.cells[free]={...occupant,facing:facingForMove(target,free)};}
     town.cells[target]={...change.previous};
   }
   return true;
@@ -109,7 +113,7 @@ export function undoChanges(town,changes) {
 export function isRaining(town){return town.weather==='rain'||(town.weather!=='clear'&&town.elapsed%60>=44);}
 export function wanderAnimals(town,heldIds=new Set()) {
   const animals=town.cells.map((c,index)=>({cell:c,index})).filter(({cell})=>ANIMAL_TYPES.includes(cell?.type)&&cell.enabled&&!heldIds.has(cell.id)).sort((a,b)=>a.cell.id-b.cell.id),moves=[];
-  for(const {cell,index}of animals){town.wanderSeed=(Math.imul(town.wanderSeed,1664525)+1013904223)>>>0;const options=neighbors(index%WIDTH,Math.floor(index/WIDTH)).map(([x,y])=>y*WIDTH+x).filter(i=>!town.cells[i]);if(!options.length||town.wanderSeed%5===0)continue;const target=options[town.wanderSeed%options.length];town.cells[index]=null;town.cells[target]=cell;moves.push({id:cell.id,from:index,to:target});}
+  for(const {cell,index}of animals){town.wanderSeed=(Math.imul(town.wanderSeed,1664525)+1013904223)>>>0;const options=neighbors(index%WIDTH,Math.floor(index/WIDTH)).map(([x,y])=>y*WIDTH+x).filter(i=>!town.cells[i]);if(!options.length||town.wanderSeed%5===0)continue;const target=options[town.wanderSeed%options.length];town.cells[index]=null;town.cells[target]={...cell,facing:facingForMove(index,target)};moves.push({id:cell.id,from:index,to:target});}
   return moves;
 }
 export function previewAction(town,tool,x,y,from=null) {
@@ -126,7 +130,7 @@ export function restoreTown(data) {
   const cells=data.cells.map((cell,index)=>{
     if(cell===null)return null;if(!cell||!allowed.includes(cell.type))throw new Error('街のマスが正しくありません。');
     if(data.version===2&&(index===4*WIDTH)!==(cell.type==='spring'))throw new Error('泉の場所が正しくありません。');
-    const value={type:cell.type};if(ANIMAL_TYPES.includes(cell.type)){if(data.version===2||!Number.isSafeInteger(cell.id)||cell.id<1||ids.has(cell.id))throw new Error('動物の記録が正しくありません。');ids.add(cell.id);value.id=cell.id;}if(cell.type==='canal'){if(typeof cell.open!=='boolean')throw new Error('水路の設定が正しくありません。');value.open=cell.open;}
+    const value={type:cell.type};if(ANIMAL_TYPES.includes(cell.type)){if(data.version===2||!Number.isSafeInteger(cell.id)||cell.id<1||ids.has(cell.id))throw new Error('動物の記録が正しくありません。');if(cell.facing!==undefined&&!ANIMAL_DIRECTIONS.includes(cell.facing))throw new Error('動物の向きが正しくありません。');ids.add(cell.id);value.id=cell.id;value.facing=animalFacing(cell);}if(cell.type==='canal'){if(typeof cell.open!=='boolean')throw new Error('水路の設定が正しくありません。');value.open=cell.open;}
     if(MUSICAL_TYPES.includes(cell.type)){if(data.version===2&&cell.type==='garden'){value.enabled=false;}else{if(typeof cell.enabled!=='boolean')throw new Error('楽器の設定が正しくありません。');value.enabled=cell.enabled;}}return value;
   });
   if(cells.filter(cell=>cell?.type==='spring').length!==1)throw new Error('街には泉が一つ必要です。');
