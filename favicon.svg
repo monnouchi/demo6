@@ -1,7 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <rect width="64" height="64" rx="15" fill="#e4ecd9"/>
-  <path d="M11 29h26v22H11z" fill="#efe1bc" stroke="#658b73" stroke-width="3.5" stroke-linejoin="round"/>
-  <path d="M6 30 24 13l18 17z" fill="#658b73"/>
-  <path d="M21 51V39h7v12" fill="#355d4b"/>
-  <path d="M42 23h9q8 0 8-6 0-5-6-5M44 35h9q6 0 6 5 0 5-5 5" fill="none" stroke="#b49a61" stroke-width="4" stroke-linecap="round"/>
+  <path d="M32 8v9" stroke="#8a7953" stroke-width="4" stroke-linecap="round"/>
+  <path d="M16 38q7-8 7-19 9-12 18 0 0 11 7 19z" fill="#d8b667" stroke="#a28b50" stroke-width="2.5" stroke-linejoin="round"/>
+  <ellipse cx="32" cy="38" rx="17" ry="4" fill="#ba9853"/>
+  <path d="M26 24q0-5 4-6" stroke="#f0d48a" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="32" cy="44" r="4.5" fill="#877951"/>
+  <path d="M10 53h13v4h18v-4h13" fill="none" stroke="#cbbf99" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M10 53h13v4h18v-4h13" fill="none" stroke="#77b4b7" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 </svg>
