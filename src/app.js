@@ -1,10 +1,10 @@
-import { WIDTH, HEIGHT, TYPES, SCALES, MUSICAL_TYPES, createTown, waterNetwork, build, moveBuilding, undoChanges, previewAction, advance, isRaining, wanderAnimals, lineCells, restoreTown, cellAt } from './core.js?v=0.6.3';
-import { renderTown, pulseTown, setCursor, center, icon, welcomeArt } from './render.js?v=0.6.4';
+import { WIDTH, HEIGHT, TYPES, SCALES, MOVABLE_TYPES, createTown, waterNetwork, build, moveBuilding, undoChanges, previewAction, advance, isRaining, wanderAnimals, lineCells, restoreTown, cellAt } from './core.js?v=0.6.6';
+import { renderTown, pulseTown, setCursor, center, icon, welcomeArt } from './render.js?v=0.6.6';
 import { TownAudio, windNotes, STEP_SECONDS } from './music.js?v=0.6.5';
 import { captureTown, photoFrame, downloadBlob, sharablePhoto, sharePhoto } from './photo.js?v=0.6.4';
 import { restoreTown as restoreLegacy, waterNetwork as legacyNetwork } from './legacy-core.js?v=0.6.2';
 import { renderTown as renderLegacy } from './legacy-render.js?v=0.6.2';
-import { reasonCopy, toneCopy, currentCellCopy, previewCopy, movedCellCopy } from './feedback.js?v=0.6.2';
+import { reasonCopy, toneCopy, currentCellCopy, previewCopy, movedCellCopy } from './feedback.js?v=0.6.6';
 const $=id=>document.getElementById(id),SAVE_KEY='mon.demo6.composition.v2',LEGACY_KEY='mon.demo6.town.v1';
 let town=createTown(),network,legacy=null,saveProblem='',running=false,tool='gutter',cursor=[4,3],hover=null,moveSource=null,detailPosition=null;
 let history=[],stroke=null,visited=null,lastPointer=null,toastTimer,lastFrame=0,lastSave=0,silentTime=0,silentStep=0,currentStep=-1,legacyRaw=null;
@@ -20,14 +20,14 @@ function edited(){if(preventAutoSave){try{localStorage.setItem('mon.demo6.compos
 function redraw(){network=waterNetwork(town);audio.setTown(town,network);document.body.dataset.scene=town.scene;renderTown($('town'),town,network,tool,moveSource);if(currentStep>=0)pulseTown($('town'),currentStep,[]);setCursor($('town'),hover);updateUi();}
 function selectTool(type){if(!TYPES[type])return;tool=type;moveSource=null;hover=null;detailPosition=null;camera.pan=false;updateCamera();document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tool===tool)));setCursor($('town'),hover);const selected=$('build-bar').querySelector(`[data-tool="${tool}"]`);if(selected&&innerWidth<=640){const bar=$('build-bar');if(selected.offsetLeft<bar.scrollLeft)bar.scrollLeft=selected.offsetLeft;else if(selected.offsetLeft+selected.offsetWidth>bar.scrollLeft+bar.clientWidth)bar.scrollLeft=selected.offsetLeft+selected.offsetWidth-bar.clientWidth;}updateSelection();}
 function updateSelection(){
-  const data=TYPES[tool];$('selected-label').textContent=data.name;$('tool-stats').textContent=['garden','tree'].includes(tool)?'水路なしでリズムを刻む':tool==='remove'?'空き地に戻す':tool==='move'?'拍と高さを変える':tool==='flow'?'流す音を選ぶ':'いくつでも置けます';
+  const data=TYPES[tool];$('selected-label').textContent=data.name;$('tool-stats').textContent=['garden','tree'].includes(tool)?'水路なしでリズムを刻む':tool==='remove'?'空き地に戻す':tool==='move'?'場所を置き直す':tool==='flow'?'流す音を選ぶ':'いくつでも置けます';
   let message=data.description;
   if(moveSource&&!hover)message='移す先の空き地を選ぼう。';
   if(detailPosition&&(!hover||(hover[0]===detailPosition[0]&&hover[1]===detailPosition[1])))message=currentCellCopy(town,network,detailPosition);
   else if(hover){
     const result=previewAction(town,tool,...hover,moveSource);
     if(result.ok)message=previewCopy(result,tool,hover);
-    else if(tool==='move'&&moveSource)message=hover[0]===moveSource[0]&&hover[1]===moveSource[1]?'楽器を選びました。移す先の空き地を選ぼう。':result.reason;else if(tool==='move')message=moveSource?'移す先の空き地を選ぼう。':'移す楽器・木・花壇を選ぼう。';else if(result.inspect){const b=network.buildings.find(b=>b.x===hover[0]&&b.y===hover[1]);message=b?`${TYPES[b.type].name} · ${toneCopy(b)} · ${reasonCopy(b)}`:data.description;}else if(result.reason)message=result.reason;
+    else if(tool==='move'&&moveSource)message=hover[0]===moveSource[0]&&hover[1]===moveSource[1]?'移す場所を選びました。空き地を選ぼう。':result.reason;else if(tool==='move')message=moveSource?'移す先の空き地を選ぼう。':'移す泉・楽器・木・花壇を選ぼう。';else if(result.inspect){const b=network.buildings.find(b=>b.x===hover[0]&&b.y===hover[1]);message=b?`${TYPES[b.type].name} · ${toneCopy(b)} · ${reasonCopy(b)}`:data.description;}else if(result.reason)message=result.reason;
   }
   $('placement-preview').textContent=message;$('placement-preview').classList.toggle('warning',/足り|待ち|先に演奏|未接続/.test(message));
 }
@@ -51,8 +51,8 @@ function pushChanges(changes){if(!changes.length)return;history.push(changes);if
 function place(x,y,quiet=false){
   if(tool==='move'){
     const cell=cellAt(town,x,y);
-    if(cell&&MUSICAL_TYPES.includes(cell.type)){detailPosition=null;moveSource=moveSource?.[0]===x&&moveSource?.[1]===y?null:[x,y];redraw();toast(moveSource?'空き地を選んで移動。横＝拍、縦＝高さ。':'移動を取り消しました。',2200);return;}
-    if(!moveSource){if(!quiet)toast('移す楽器・木・花壇を先に選ぼう。');return;}
+    if(cell&&MOVABLE_TYPES.includes(cell.type)){detailPosition=null;moveSource=moveSource?.[0]===x&&moveSource?.[1]===y?null:[x,y];redraw();toast(moveSource?(cell.type==='spring'?'空き地を選んで泉を移動。水のつながりが変わります。':'空き地を選んで移動。横＝拍、縦＝高さ。'):'移動を取り消しました。',2200);return;}
+    if(!moveSource){if(!quiet)toast('移す泉・楽器・木・花壇を先に選ぼう。');return;}
     const result=moveBuilding(town,moveSource,[x,y]);if(!result.ok){toast(result.reason);return;}
     pushChanges(result.changes);moveSource=null;detailPosition=[x,y];redraw();toast(movedCellCopy(town,network,[x,y]),4200);return;
   }

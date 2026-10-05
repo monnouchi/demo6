@@ -1,4 +1,4 @@
-import { TYPES, cellAt, key } from './core.js?v=0.6.2';
+import { TYPES, cellAt, key } from './core.js?v=0.6.6';
 import { noteName } from './music.js?v=0.6.2';
 
 export function reasonCopy(building) {
@@ -27,6 +27,7 @@ export function previewCopy(result,tool,position) {
   return `${prefix}：${b?`${toneCopy(b)} · ${beatCopy(position[0])} · ${reasonCopy(b)}。 `:''}${networkCopy(result.after)}`;
 }
 export function movedCellCopy(town,network,position) {
+  if(cellAt(town,...position)?.type==='spring')return '泉を移しました。つながる水路と街の音を聴き比べよう。';
   const building=network.buildings.find(b=>b.x===position[0]&&b.y===position[1]);
   return building?.active?`場所を移しました。${toneCopy(building)}の光る拍と音を聴いてみよう。`:`場所を移しました。${reasonCopy(building)}。`;
 }
