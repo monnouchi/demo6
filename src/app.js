@@ -1,5 +1,5 @@
 import { WIDTH, HEIGHT, SAVE_VERSION, TYPES, SCALES, MOVABLE_TYPES, createTown, waterNetwork, build, moveBuilding, undoChanges, previewAction, advance, isRaining, wanderAnimals, lineCells, restoreTown, cellAt } from './core.js?v=0.6.8';
-import { renderTown, pulseTown, setCursor, center, icon, welcomeArt } from './render.js?v=0.6.9';
+import { renderTown, pulseTown, setCursor, center, icon, welcomeArt } from './render.js?v=0.6.11';
 import { TownAudio, windNotes, STEP_SECONDS } from './music.js?v=0.6.5';
 import { captureTown, photoFrame, downloadBlob, sharablePhoto, sharePhoto } from './photo.js?v=0.6.4';
 import { restoreTown as restoreLegacy, waterNetwork as legacyNetwork } from './legacy-core.js?v=0.6.2';
